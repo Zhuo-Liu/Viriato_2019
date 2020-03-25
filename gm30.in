@@ -1,0 +1,107 @@
+!***************************
+!Basic input file for Viriato
+!Written by AVK 26/03/2013
+!***************************
+&box_parameters
+ lx = 1. ! Box length in units of 2*pi
+ ly = 1.
+ lz = 1.
+ nlx = 128 ! No. of grid points
+ nly = 128
+ nlz = 128
+ g_inc = .true. !! 要不要hermite moment
+ ngtot = 30 ! Total number of g
+ npe = 8 ! Number of procs in perp
+ npez = 8 ! Number of procs in z
+ three_D = .true. 
+/
+&time_parameters
+ tmax = 100000000
+ init_aa0_fac = 0.1  ！不知道
+ cfl_frac = .2。    ！设置步长的。。。
+ epsilon = 1.e-13
+ pmax = 1
+/
+&flr
+ rhoi = 2.0。  ！离子半径 !!!!!!!
+ rhos = 1.414 ！isothrmal
+ de = 0.03   !skin depth !!!!!!!
+/
+&mhd
+ small_rhoi = 1.e-6
+/
+&anjor_param
+ anjor = .false.
+ inkz = 1
+ tite = 1.
+ zcharge = 1.
+ betai = 1.
+/
+&elec_temp_grad
+ rhoe_LTe = 0.0
+/
+&diffusion !!最后将能量dissipate掉的东西
+ nu_ei = 0.0
+ res = 0.0
+ niu = 0.0  !rescocity
+ hyper_coef = 1.0
+ hyper_coef_g = 1.0
+ hyperm_coef = 1.0
+ hyper_fixed = .false.
+ hyper_order = 5
+ hyper_order_g = 3
+ hyper_morder = 3
+ hyper_eta = 1.0e-5
+ hyper_nu = 1.0e-5
+ hyper_nu_g = 1.0e-5
+ hyper_colls_fixed=.false.
+ hyper_colls = 0.01
+/
+&equil
+ a0 = 0.0
+ phi0 = 0.0
+ leq = 0.3
+ perturb_amp = 0.0
+ equilib_type = "none"
+ perturb_type = "none"
+/
+&turb_src
+ turb = .true.
+ kfp1 = 1 ！p=垂直，1最小的driving scale，2是最大的driving scale
+ kfp2 = 2
+ kfz1 = 1
+ kfz2 = 1
+ feps = 0.3 ！amplitude
+/
+&data_sav
+ save_checkpoints = 8000
+ save_energyfiles = 4000
+ save_datafiles = 200
+ restart = 0
+ rs_time = 0.0
+ !oldrun = "test_random" ! Name of the oldrun for restarts
+ use_hac_checkpoint = .false.
+/
+&antenna
+ amplitude = 0.0
+ omega0 = 0.9
+ kpar0 = 1
+ kperp0 = 1
+/
+&zintegration
+ zmethod = "highord"
+/
+&lineartest
+ linear = .false.
+/
+&seeding
+ amp_ratio = 5000.
+ twomodes = .true.
+ kx1 = 7
+ ky1 = 7
+ kz1 = 2
+ kx2 = 4
+ ky2 = 4
+ kz2 = 4
+/
+
