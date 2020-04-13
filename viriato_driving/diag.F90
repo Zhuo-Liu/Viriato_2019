@@ -2948,10 +2948,10 @@ end subroutine kfile_name
     integer(HID_T) :: file_id_g
     integer(HSIZE_T), dimension(1) :: data_dims_total
     integer(HID_T) :: dataspace_Apar, dataspace_ne, dset_id_Apar, dset_id_ne, memspace
-    integer(HSIEZ_T), dimension(1) :: data_dims_single
+    integer(HSIZE_T), dimension(1) :: data_dims_single
     integer(HSIZE_T), dimension(1) :: data_dims_total_g
     integer(HID_T) :: dataspace_g, memspace_g
-    integer(HSIZE_T) :: dimension(1) :: data_dims_single_g
+    integer(HSIZE_T), dimension(1) :: data_dims_single_g
 
     integer(4) :: error
     integer(4) :: rank =1
@@ -2959,10 +2959,8 @@ end subroutine kfile_name
     integer(HSIZE_T), dimension(1) :: offset
     integer(HSIZE_T), dimension(1) :: offset_g
     integer(HSIZE_T), dimension(1) :: stride = (/1/)
-    integer(HSIEZ_T), dimension(1) :: block_size = (/1/))
+    integer(HSIZE_T), dimension(1) :: block_size = (/1/)
 
-    data_dims_single(1) = nlx*nly_par*nlz_par
-    data_dims_total(1) = nlx*nly*nlz
    !--------------------------
 
     real, allocatable, dimension(:,:,:) :: Apar_buff, ne_buff !epar_buff
@@ -2973,7 +2971,8 @@ end subroutine kfile_name
     allocate (gdummy(nlx,nly_par,nlz_par,gmin:ngtot))
 
     trash = 0.0
-
+    data_dims_single(1) = nlx*nly_par*nlz_par
+    data_dims_total(1) = nlx*nly*nlz
 
     if (iproc==0) then
        !write(*,*) 'Hello world1'
@@ -3292,7 +3291,7 @@ end subroutine kfile_name
     integer(HSIZE_T), dimension(1) :: data_dims_single !size of single processor dataset
     integer(HSIZE_T), dimension(1) :: slab_size !? = single processor dataset size
     !! stride and block_size are parameters when selecting hyperslab
-    integer(HSIZE_T)，dimension(1) :: stride (/1/)
+    integer(HSIZE_T), dimension(1) :: stride (/1/)
     integer(HSIZE_T), dimension(1) :: block_size (/1/)
     integer(HSIZE_T), dimension(1) :: offset
     integer(HSIEZ_T), dimension(1) :: offset_g
@@ -3375,7 +3374,7 @@ end subroutine kfile_name
 
       !g initial read for proc0
       !! select a hyperslab region to add to the current selected region
-      call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F，offset_g, data_dims_single_g, error, stride, block_size)
+      call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
       !! creates a new dataspace and opens it for access
       !!! rank is the number of dimension, data_dims is the current dimension
       !!! returns a dataspace identifier (memory dataspace) ("memspace" here)
