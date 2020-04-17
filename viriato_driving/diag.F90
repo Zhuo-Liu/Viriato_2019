@@ -2982,6 +2982,7 @@ end subroutine kfile_name
       !---------------hdf5-------------
        call h5open_f(error)
        call h5fcreate_f(trim(file1),H5F_ACC_TRUNC_F, file_id,error) ! create an HDF5 file
+       call h5fcreate_f(trim(file2),H5F_ACC_TRUNC_F, file_id_g,error)
 
        call h5screate_simple_f(rank,data_dims_total,dataspace_Apar,error)
        call h5screate_simple_f(rank,data_dims_total,dataspace_ne,error)
