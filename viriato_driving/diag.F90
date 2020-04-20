@@ -2963,6 +2963,9 @@ end subroutine kfile_name
 
     data_dims_single(1) = nlx*nly_par*nlz_par
     data_dims_total(1) = nlx*nly*nlz
+    
+    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin)
+    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin)
    !--------------------------
 
     real, allocatable, dimension(:,:,:) :: Apar_buff, ne_buff !epar_buff
@@ -3418,7 +3421,7 @@ end subroutine kfile_name
             call h5sclose_f(memspace, error)
             ! g read
             call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
-            call h5screate_simple_f(rank, data_dims_single, memspace_g, error)
+            call h5screate_simple_f(rank, data_dims_single_g, memspace_g, error)
             call h5dread_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy2, data_dims_single_g, error, memspace_g, dataspace_g)
             call h5sclose_f(memspace_g, error)
 
