@@ -2961,15 +2961,9 @@ end subroutine kfile_name
     integer(HSIZE_T), dimension(1) :: stride = (/1/)
     integer(HSIZE_T), dimension(1) :: block_size = (/1/)
 
-    data_dims_single(1) = nlx*nly_par*nlz_par
-    data_dims_total(1) = nlx*nly*nlz
-    
-    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin)
-    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin)
-
-
     real, allocatable, dimension(:,:,:) :: Apar_buff, ne_buff !epar_buff
     real, allocatable, dimension(:,:,:,:) :: gdummy
+    
     allocate (Apar_buff(nlx,nly_par,nlz_par))
     allocate (ne_buff(nlx,nly_par,nlz_par))
     !allocate (epar_buff(nlx,nly_par,nlz_par))
@@ -2978,7 +2972,9 @@ end subroutine kfile_name
     trash = 0.0
     data_dims_single(1) = nlx*nly_par*nlz_par
     data_dims_total(1) = nlx*nly*nlz
-
+    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin)
+    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin)
+    
     if (iproc==0) then
        !write(*,*) 'Hello world1'
       !  open (unit=16,file=trim(file1))
