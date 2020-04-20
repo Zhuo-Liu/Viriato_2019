@@ -3317,7 +3317,7 @@ end subroutine kfile_name
 
     allocate (Apar_buff2(nlx,nly_par,nlz_par))
     allocate (ne_buff2(nlx,nly_par,nlz_par))
-    allocate (gdummy2(nlx,nly_par,nlz_par,ngtot-gmin))    
+    allocate (gdummy2(nlx,nly_par,nlz_par,ngtot:gmin))    
 
     do n=1,NPE*npez-1
          if (iproc==n) then
