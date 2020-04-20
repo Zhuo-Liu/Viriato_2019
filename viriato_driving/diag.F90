@@ -2994,6 +2994,7 @@ end subroutine kfile_name
        call h5dcreate_f(file_id_g, g_name, H5T_NATIVE_DOUBLE, dataspace_g, dset_id_g, error)
 
        offset(1) = 0
+       offset_g(1) = 0
       ! ---------------
        do k=1,nlz_par  !writes its own data
           do j=1,nly_par
