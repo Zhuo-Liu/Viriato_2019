@@ -2972,8 +2972,8 @@ end subroutine kfile_name
     trash = 0.0
     data_dims_single(1) = nlx*nly_par*nlz_par
     data_dims_total(1) = nlx*nly*nlz
-    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin)
-    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin)
+    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin+1)
+    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin+1)
     
     if (iproc==0) then
        !write(*,*) 'Hello world1'
@@ -3004,6 +3004,7 @@ end subroutine kfile_name
                 ! write(17,*) g(i,j,k,:)
                Apar_buff(i,j,k) = Apar(i,j,k)
                ne_buff(i,j,k) = ne(i,j,k)
+               gdummy(i,j,k,:) = g(i,j,k,:)
              end do
           end do
        end do
@@ -3310,8 +3311,8 @@ end subroutine kfile_name
     data_dims_total(1) = nlx*nly*nlz
     data_dims_single(1) = nlx*nly_par*nlz_par
     ! two dimensions but for g
-    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin)
-    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin)
+    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin+1)
+    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin+1)
 
 
     allocate (Apar_buff2(nlx,nly_par,nlz_par))
