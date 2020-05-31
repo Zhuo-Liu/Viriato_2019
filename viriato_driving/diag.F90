@@ -2961,15 +2961,9 @@ end subroutine kfile_name
     integer(HSIZE_T), dimension(1) :: stride = (/1/)
     integer(HSIZE_T), dimension(1) :: block_size = (/1/)
 
-    data_dims_single(1) = nlx*nly_par*nlz_par
-    data_dims_total(1) = nlx*nly*nlz
-    
-    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin+1)
-    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin+1)
-
-
     real, allocatable, dimension(:,:,:) :: Apar_buff, ne_buff !epar_buff
     real, allocatable, dimension(:,:,:,:) :: gdummy
+    
     allocate (Apar_buff(nlx,nly_par,nlz_par))
     allocate (ne_buff(nlx,nly_par,nlz_par))
     !allocate (epar_buff(nlx,nly_par,nlz_par))
@@ -2978,7 +2972,9 @@ end subroutine kfile_name
     trash = 0.0
     data_dims_single(1) = nlx*nly_par*nlz_par
     data_dims_total(1) = nlx*nly*nlz
-
+    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin+1)
+    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin+1)
+    
     if (iproc==0) then
        !write(*,*) 'Hello world1'
       !  open (unit=16,file=trim(file1))
@@ -2998,6 +2994,7 @@ end subroutine kfile_name
        call h5dcreate_f(file_id_g, g_name, H5T_NATIVE_DOUBLE, dataspace_g, dset_id_g, error)
 
        offset(1) = 0
+       offset_g(1) = 0
       ! ---------------
        do k=1,nlz_par  !writes its own data
           do j=1,nly_par
@@ -3008,6 +3005,7 @@ end subroutine kfile_name
                 ! write(17,*) g(i,j,k,:)
                Apar_buff(i,j,k) = Apar(i,j,k)
                ne_buff(i,j,k) = ne(i,j,k)
+               gdummy(i,j,k,:) = g(i,j,k,:)
              end do
           end do
        end do
@@ -3314,13 +3312,13 @@ end subroutine kfile_name
     data_dims_total(1) = nlx*nly*nlz
     data_dims_single(1) = nlx*nly_par*nlz_par
     ! two dimensions but for g
-    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin)
-    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin)
+    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin+1)
+    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin+1)
 
 
     allocate (Apar_buff2(nlx,nly_par,nlz_par))
     allocate (ne_buff2(nlx,nly_par,nlz_par))
-    allocate (gdummy2(nlx,nly_par,nlz_par,ngtot-gmin))    
+    allocate (gdummy2(nlx,nly_par,nlz_par,ngtot:gmin))    
 
     do n=1,NPE*npez-1
          if (iproc==n) then
