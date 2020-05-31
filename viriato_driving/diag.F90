@@ -2950,7 +2950,7 @@ end subroutine kfile_name
     integer(HID_T) :: dataspace_Apar, dataspace_ne, dset_id_Apar, dset_id_ne, memspace
     integer(HSIZE_T), dimension(1) :: data_dims_single
     integer(HSIZE_T), dimension(1) :: data_dims_total_g
-    integer(HID_T) :: dataspace_g, memspace_g, dset_id_g
+    integer(HID_T) :: dataspace_g, memspace, dset_id_g
     integer(HSIZE_T), dimension(1) :: data_dims_single_g
 
     integer(4) :: error
@@ -3023,9 +3023,9 @@ end subroutine kfile_name
        call h5sclose_f(memspace, error)
 
        call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
-       call h5screate_simple_f(rank,data_dims_single_g,memspace_g,error)
+       call h5screate_simple_f(rank,data_dims_single_g,memspace,error)
        call h5dwrite_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy,data_dims_single_g, error)
-       call h5sclose_f(memspace_g, error)
+       call h5sclose_f(memspace, error)
 
        do n=1,NPE*npez-1 
           call mpi_recv (Apar_buff, size(Apar_buff), MPI_DOUBLE_PRECISION, n, 1,& ! recv n-process's data
@@ -3061,9 +3061,9 @@ end subroutine kfile_name
           call h5sclose_f(memspace, error)
    
           call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
-          call h5screate_simple_f(rank,data_dims_single_g,memspace_g,error)
+          call h5screate_simple_f(rank,data_dims_single_g,memspace,error)
           call h5dwrite_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy,data_dims_single_g, error)
-          call h5sclose_f(memspace_g, error)
+          call h5sclose_f(memspace, error)
           !write(*,*) 'Hello world5-', n 
        end do
       !  close(16)
@@ -3290,7 +3290,7 @@ end subroutine kfile_name
     integer(HID_T) :: file_id_g ! file identifier for g file (restart2)
     integer(HSIZE_T), dimension(1) :: data_dims_total ! size of entire domain dataset
     integer(HID_T) :: dataspace_Apar, dataspace_ne, memspace, dset_id_Apar, dset_id_ne !???
-    integer(HID_T) :: dataspace_g, dset_id_g, memspace_g ! dset_id means dataset identifier
+    integer(HID_T) :: dataspace_g, dset_id_g, memspace ! dset_id means dataset identifier
     integer(4) :: error
     integer(4) :: rank = 1 ! save data as 1d array    
     !! hyperslab is portions of datasets, here it might be refer to a portion of dataset in ONE PROCESSOR
@@ -3307,6 +3307,10 @@ end subroutine kfile_name
 
     real, allocatable, dimension(:,:,:) :: Apar_buff2, ne_buff2
     real, allocatable, dimension(:,:,:,:):: gdummy2
+
+    allocate (Apar_buff2(nlx,nly_par,nlz_par))
+    allocate (ne_buff2(nlx,nly_par,nlz_par))
+    allocate (gdummy2(nlx,nly_par,nlz_par,gmin:ngtot))    
     
     !hdf5 data dimensions
     data_dims_total(1) = nlx*nly*nlz
@@ -3315,10 +3319,6 @@ end subroutine kfile_name
     data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin+1)
     data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin+1)
 
-
-    allocate (Apar_buff2(nlx,nly_par,nlz_par))
-    allocate (ne_buff2(nlx,nly_par,nlz_par))
-    allocate (gdummy2(nlx,nly_par,nlz_par,ngtot:gmin))    
 
     do n=1,NPE*npez-1
          if (iproc==n) then
@@ -3386,15 +3386,15 @@ end subroutine kfile_name
       !! creates a new dataspace and opens it for access
       !!! rank is the number of dimension, data_dims is the current dimension
       !!! returns a dataspace identifier (memory dataspace) ("memspace" here)
-      call h5screate_simple_f(rank, data_dims_single_g, memspace_g, error)
+      call h5screate_simple_f(rank, data_dims_single_g, memspace, error)
       !! reads raw dataset specified by data_id from the file into an application memory buffer
       !!! NATIVE_DOUBLE is a memtype id, gdummy2 is buffer
       !!! The part of the dataset to read is defined by memspace_id and filespace_id
       !!!! memspace_id specifies the momory dataspace and the selection within it, filespace_id specifies the selection within the file dataset's dataspace
       !!!! File is refered to original dataset, it has data_id and dataspace_id, memspace is the target
       !!!! I think dataspace_g here is actually H5S_ALL ? NO, bcause HYPER_SELECTION!
-      call h5dread_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy2, data_dims_single_g, error, memspace_g, dataspace_g)
-      call h5sclose_f(memspace_g, error)
+      call h5dread_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy2, data_dims_single_g, error, memspace, dataspace_g)
+      call h5sclose_f(memspace, error)
 
 
          do k=1,nlz_par  !reads its own data
@@ -3425,9 +3425,9 @@ end subroutine kfile_name
             call h5sclose_f(memspace, error)
             ! g read
             call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
-            call h5screate_simple_f(rank, data_dims_single_g, memspace_g, error)
-            call h5dread_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy2, data_dims_single_g, error, memspace_g, dataspace_g)
-            call h5sclose_f(memspace_g, error)
+            call h5screate_simple_f(rank, data_dims_single_g, memspace, error)
+            call h5dread_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy2, data_dims_single_g, error, memspace, dataspace_g)
+            call h5sclose_f(memspace, error)
 
 
          !  do k=1,nlz_par  !reads n-process's data
