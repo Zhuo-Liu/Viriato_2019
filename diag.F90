@@ -1836,7 +1836,7 @@ end subroutine helicity_test
                 visc_diss(k)=visc_diss(k)+2.0*niu*kperp(j,i)**2*(rhos_diag**2*nek(j,i,k)-FIK(j,i,k))*&
                      conjg(nek(j,i,k))
 
-                if(g_inc) then ! gmin=2
+                if(g_inc) then
                    do ng=gmin+1,ngtot
                       gm_diss(k)=gm_diss(k)+2.0*nu_ei*rhos_diag**2*ng*gk(j,i,k,ng)*conjg(gk(j,i,k,ng))
                       hyper_gm_diss(k)=hyper_gm_diss(k) + &
@@ -2922,8 +2922,8 @@ end subroutine kfile_name
 !*********************************************
   subroutine proc0_recvs_and_writes(file1,file2,Apar,ne,g)
     !LF, 8/3/2015
-    !write checkpoints: proc0 receives data from all others and writes to a file
-    !Motivation: cut down on IO time
+    !write checkpoints: proc0 receives data from all others and wites to a file
+    ! Motivation: cut down on IO time
 
     use constants
     use mp,only:proc0,iproc
@@ -2940,36 +2940,30 @@ end subroutine kfile_name
     real, DIMENSION(nlx,nly_par,nlz_par,gmin:ngtot):: g
     real:: trash
     character(len=100):: file1, file2
-   ! --- hdf5 ---
-    character(len=4) :: Apar_name = "Apar"
-    character(len=2) :: ne_name = "ne"
-    character(len=1) :: g_name = "g"
-    integer(HID_T) :: file_id
-    integer(HID_T) :: file_id_g
-    integer(HSIZE_T), dimension(1) :: data_dims_total
-    integer(HID_T) :: dataspace_Apar, dataspace_ne, dset_id_Apar, dset_id_ne, memspace
-    integer(HSIZE_T), dimension(1) :: data_dims_single
-    integer(HSIZE_T), dimension(1) :: data_dims_total_g
-    integer(HID_T) :: dataspace_g, memspace_g, dset_id_g
-    integer(HSIZE_T), dimension(1) :: data_dims_single_g
-
-    integer(4) :: error
-    integer(4) :: rank =1
-    !integer(HSIZE_T), dimension(1) :: slab_size
-    integer(HSIZE_T), dimension(1) :: offset
-    integer(HSIZE_T), dimension(1) :: offset_g
-    integer(HSIZE_T), dimension(1) :: stride = (/1/)
-    integer(HSIZE_T), dimension(1) :: block_size = (/1/)
-
-    data_dims_single(1) = nlx*nly_par*nlz_par
-    data_dims_total(1) = nlx*nly*nlz
-    
-    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin+1)
-    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin+1)
-
 
     real, allocatable, dimension(:,:,:) :: Apar_buff, ne_buff !epar_buff
     real, allocatable, dimension(:,:,:,:) :: gdummy
+    ! hdf5 file and data properties                                                
+    character(len=4):: Apar_name = "Apar"
+    character(len=2):: ne_name = "ne"
+    character(len=1):: g_name = "g"
+    integer(HID_T) :: file_id ! file identifier
+    integer(HID_T) :: file_id2 ! file identifier                                     
+    integer(HSIZE_T), dimension(1) :: data_dims_total ! size of entire domain dataset         
+    integer(HSIZE_T), dimension(1) :: data_dims_total2 ! size of entire domain dataset        
+    integer(HID_T):: dataspace_Apar, dataspace_ne, dataspace_g, memspace, dset_id_Apar, dset_id_ne, dset_id_g
+    integer(4)     ::   error ! Error flag                                         
+    integer(4):: rank = 1  ! save data as 1d array -- should be possible to make this a 3d array, but do this case first.                                            
+    integer(HSIZE_T), dimension(1):: data_dims_single !size of single processor dataset
+    integer(HSIZE_T), dimension(1):: data_dims_single_g !size of single processor dataset                                                                                 
+    INTEGER(HSIZE_T), DIMENSION(1) :: slab_size  ! Size of hyperslab = single processor dataset size                                                                 
+    INTEGER(HSIZE_T), DIMENSION(1) :: offset ! Hyperslab offset
+
+    integer(HSIZE_T), dimension(1) :: offset_g ! offset for g
+    
+    INTEGER(HSIZE_T), DIMENSION(1) :: stride = (/1/) ! Hyperslab stride            
+    INTEGER(HSIZE_T), DIMENSION(1) :: block_size = (/1/)  ! Hyperslab block size 
+
     allocate (Apar_buff(nlx,nly_par,nlz_par))
     allocate (ne_buff(nlx,nly_par,nlz_par))
     !allocate (epar_buff(nlx,nly_par,nlz_par))
@@ -2978,108 +2972,104 @@ end subroutine kfile_name
     trash = 0.0
     data_dims_single(1) = nlx*nly_par*nlz_par
     data_dims_total(1) = nlx*nly*nlz
-
+    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin+1)
+    data_dims_total2(1) = nlx*nly*nlz*(ngtot-gmin+1)
+    
     if (iproc==0) then
        !write(*,*) 'Hello world1'
-      !  open (unit=16,file=trim(file1))
-      !  open (unit=17,file=trim(file2))
-       !write(*,*) 'Hello world2'
-      !---------------hdf5-------------
-       call h5open_f(error)
-       call h5fcreate_f(trim(file1),H5F_ACC_TRUNC_F, file_id,error) ! create an HDF5 file
-       call h5fcreate_f(trim(file2),H5F_ACC_TRUNC_F, file_id_g,error)
-
-       call h5screate_simple_f(rank,data_dims_total,dataspace_Apar,error)
-       call h5screate_simple_f(rank,data_dims_total,dataspace_ne,error)
-       call h5screate_simple_f(rank,data_dims_total_g,dataspace_g,error)
-
+       call h5open_f(error) ! initialise fortran interface  
+       call h5fcreate_f(trim(file1), H5F_ACC_TRUNC_F, file_id, error)
+       call h5fcreate_f(trim(file2), H5F_ACC_TRUNC_F, file_id2, error)
+       ! create dataspace for A and n                                              
+       call h5screate_simple_f(rank, data_dims_total, dataspace_Apar, error)
+       call h5screate_simple_f(rank, data_dims_total, dataspace_ne, error)
+       call h5screate_simple_f(rank, data_dims_total2, dataspace_g, error)
+       ! create datasets for A and n                                               
        call h5dcreate_f(file_id, Apar_name, H5T_NATIVE_DOUBLE, dataspace_Apar, dset_id_Apar, error)
        call h5dcreate_f(file_id, ne_name, H5T_NATIVE_DOUBLE, dataspace_ne, dset_id_ne, error)
-       call h5dcreate_f(file_id_g, g_name, H5T_NATIVE_DOUBLE, dataspace_g, dset_id_g, error)
+       call h5dcreate_f(file_id2, g_name, H5T_NATIVE_DOUBLE, dataspace_g, dset_id_g, error)
 
-       offset(1) = 0
-      ! ---------------
-       do k=1,nlz_par  !writes its own data
+       offset(1) = 0 ! offset is zero for first processor
+       offset_g(1) = 0 
+       do k=1,nlz_par  !writes its own data                                        
           do j=1,nly_par
              do i=1,nlx
-                ! write(16,*) Apar(i,j,k), ne(i,j,k)
-                ! write(16,*) Apar(i,j,k), ne(i,j,k), trash
-                ! write(13,*) Apar(i,j,k), ne(i,j,k), epar(i,j,k)
-                ! write(17,*) g(i,j,k,:)
-               Apar_buff(i,j,k) = Apar(i,j,k)
-               ne_buff(i,j,k) = ne(i,j,k)
+                Apar_buff(i,j,k) = Apar(i,j,k)
+                ne_buff(i,j,k) = ne(i,j,k)
+                gdummy(i,j,k,:) = g(i,j,k,:)                                
              end do
           end do
        end do
-       !write(*,*) 'Hello world3'
 
-       !----hdf5-----
-       call h5sselect_hyperslab_f(dataspace_Apar, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
-       call h5screate_simple_f(rank,data_dims_single,memspace,error)
-       call h5dwrite_f(dset_id_Apar, H5T_NATIVE_DOUBLE, Apar_buff, data_dims_single, error)
+       call h5sselect_hyperslab_f(dataspace_Apar,H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
+       ! cretate memory dataspace for apar subset                                  
+       call h5screate_simple_f(rank, data_dims_single, memspace, error)
+       ! write apar                                                                
+       call h5dwrite_f(dset_id_Apar, H5T_NATIVE_DOUBLE, Apar_buff, data_dims_single, error, memspace, dataspace_Apar)
+       ! close memspace (not sure if necessary, put here to be space)              
+       call h5sclose_f(memspace, error)
+       ! repeat for ne                                                             
+       call h5sselect_hyperslab_f(dataspace_ne,H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
+       ! cretate memory dataspace for ne                                           
+       call h5screate_simple_f(rank, data_dims_single, memspace, error)
+       ! write ne                                                                  
+       call h5dwrite_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff, data_dims_single, error, memspace, dataspace_ne)
+       ! close ne                                                                  
+       call h5sclose_f(memspace, error)
+       ! repeat for g                                                             
+       call h5sselect_hyperslab_f(dataspace_g,H5S_SELECT_SET_F, offset, data_dims_single_g, error, stride, block_size)
+       ! cretate memory dataspace for ne                                           
+       call h5screate_simple_f(rank, data_dims_single_g, memspace, error)
+       ! write g                                                             
+       call h5dwrite_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy, data_dims_single_g, error, memspace, dataspace_g)
+       ! close g                                                                  
        call h5sclose_f(memspace, error)
 
-       call h5sselect_hyperslab_f(dataspace_ne, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
-       call h5screate_simple_f(rank,data_dims_single,memspace,error)
-       call h5dwrite_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff, data_dims_single, error)
-       call h5sclose_f(memspace, error)
 
-       call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
-       call h5screate_simple_f(rank,data_dims_single_g,memspace_g,error)
-       call h5dwrite_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy,data_dims_single_g, error)
-       call h5sclose_f(memspace_g, error)
-
-       do n=1,NPE*npez-1 
-          call mpi_recv (Apar_buff, size(Apar_buff), MPI_DOUBLE_PRECISION, n, 1,& ! recv n-process's data
+       do n=1,NPE*npez-1
+          call mpi_recv (Apar_buff, size(Apar_buff), MPI_DOUBLE_PRECISION, n, 1,& ! recv n-process's data                                                            
                MPI_COMM_WORLD, status_mp, ierror)
           call mpi_recv (ne_buff, size(ne_buff), MPI_DOUBLE_PRECISION, n, 2,&
                MPI_COMM_WORLD, status_mp, ierror)
-          !call mpi_recv (epar_buff, size(epar_buff), MPI_DOUBLE_PRECISION, n, 2,&
-          !             MPI_COMM_WORLD, status_mp, ierror)
-          call mpi_recv (gdummy, size(gdummy), MPI_DOUBLE_PRECISION, n, 3,&
+          call mpi_recv (gdummy, size(gdummy), MPI_DOUBLE_PRECISION, n, 3,& ! recv n-process's data                                                            
                MPI_COMM_WORLD, status_mp, ierror)
-          !write(*,*) 'Hello world4-', n 
-         !  do k=1,nlz_par  !write n-process's data
-         !     do j=1,nly_par
-         !        do i=1,nlx
-         !           write(16,*) Apar_buff(i,j,k), ne_buff(i,j,k)
-         !           !write(13,*) Apar_buff(i,j,k), ne_buff(i,j,k), epar(i,j,k)
-         !           write(17,*) gdummy(i,j,k,:)
-         !        end do
-         !     end do
-         !  end do
 
-          offset(1) = n * data_dims_single(1)
-          offset_g(1) = n * data_dims_single_g(1)
 
-          call h5sselect_hyperslab_f(dataspace_Apar, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
-          call h5screate_simple_f(rank,data_dims_single,memspace,error)
-          call h5dwrite_f(dset_id_Apar, H5T_NATIVE_DOUBLE, Apar_buff, data_dims_single,error)
-          call h5sclose_f(memspace,error)
-
-          call h5sselect_hyperslab_f(dataspace_ne, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
-          call h5screate_simple_f(rank,data_dims_single,memspace,error)
-          call h5dwrite_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff, data_dims_single, error)
+          offset(1) = n*data_dims_single(1)
+          offset_g(1) = n*data_dims_single_g(1)
+          call h5sselect_hyperslab_f(dataspace_Apar,H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
+          call h5screate_simple_f(rank, data_dims_single, memspace, error)
+          ! write apar                                                             
+          call h5dwrite_f(dset_id_Apar, H5T_NATIVE_DOUBLE, Apar_buff, data_dims_single, error, memspace, dataspace_Apar)
+          ! close memspace (not sure if necessary, put here to be space)           
           call h5sclose_f(memspace, error)
-   
-          call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
-          call h5screate_simple_f(rank,data_dims_single_g,memspace_g,error)
-          call h5dwrite_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy,data_dims_single_g, error)
-          call h5sclose_f(memspace_g, error)
-          !write(*,*) 'Hello world5-', n 
+          ! repeat for ne                                                          
+          call h5sselect_hyperslab_f(dataspace_ne,H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
+          ! cretate memory dataspace for ne                                        
+          call h5screate_simple_f(rank, data_dims_single, memspace, error)
+       ! write g                                                                  
+          call h5dwrite_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff, data_dims_single, error, memspace, dataspace_ne)
+          ! close ne                                                               
+          call h5sclose_f(memspace, error)
+          ! repeat for ne                                                          
+          call h5sselect_hyperslab_f(dataspace_g,H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
+          ! cretate memory dataspace for ne                                        
+          call h5screate_simple_f(rank, data_dims_single_g, memspace, error)
+       ! write ne                                                                  
+          call h5dwrite_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy, data_dims_single_g, error, memspace, dataspace_g)
+          ! close ne                                                               
+          call h5sclose_f(memspace, error)
+
        end do
-      !  close(16)
-      !  close(17)
-       call h5sclose_f(dataspace_Apar,error)
+       ! close file and datasets                                                   
+       call h5sclose_f(dataspace_apar,error)
        call h5sclose_f(dataspace_ne,error)
        call h5sclose_f(dataspace_g,error)
-
-       call h5dclose_f(dset_id_Apar, error)
+       call h5dclose_f(dset_id_apar, error)
        call h5dclose_f(dset_id_ne, error)
        call h5dclose_f(dset_id_g, error)
-
        call h5fclose_f(file_id, error)
-       call h5fclose_f(file_id_g, error)
+       call h5fclose_f(file_id2, error)
        call h5close_f(error)
     end if
 
@@ -3090,7 +3080,6 @@ end subroutine kfile_name
                 do i=1,nlx
                    Apar_buff(i,j,k) = Apar(i,j,k)
                    ne_buff(i,j,k) = ne(i,j,k)
-                   !epar_buff(i,j,k) = epar(i,j,k)
                    gdummy(i,j,k,:) = g(i,j,k,:)
                 end do
              end do
@@ -3099,23 +3088,20 @@ end subroutine kfile_name
                MPI_COMM_WORLD, ierror)
           call mpi_send (ne_buff, size(ne_buff), MPI_DOUBLE_PRECISION, 0, 2,&
                MPI_COMM_WORLD, ierror)
-          !call mpi_send (epar_buff, size(epar_buff), MPI_DOUBLE_PRECISION, 0, 2,&
-          !     MPI_COMM_WORLD, ierror)
-          call mpi_send (gdummy, size(gdummy), MPI_DOUBLE_PRECISION, 0, 3,&
+                    call mpi_send (gdummy, size(gdummy), MPI_DOUBLE_PRECISION, 0, 3,&
                MPI_COMM_WORLD, ierror)
        end if
     end do
 
     deallocate(Apar_buff)
     deallocate(ne_buff)
-    !deallocate(epar_buff)
     deallocate(gdummy)
 
   end subroutine proc0_recvs_and_writes
 
-!*********************************************
-  subroutine proc0_recvs_and_writes_nogs(file1,file2,Apar,ne)
-    !LMM: 28/10/2018 
+!############################################################################
+
+  subroutine proc0_recvs_and_writes_nogs(file1,file2,Apar,ne) 
     !write checkpoints: proc0 receives data from all others and writes to a file
     !Motivation: cut down on IO time
 
@@ -3130,8 +3116,7 @@ end subroutine kfile_name
     real, DIMENSION(nlx,nly_par,nlz_par):: Apar, ne
     real:: trash
     character(len=100):: file1, file2
-
-    !hdf5 file and data
+    ! hdf5 file and data properties
     character(len=4):: Apar_name = "Apar"
     character(len=2):: ne_name = "ne"
     integer(HID_T) :: file_id ! file identifier
@@ -3152,13 +3137,15 @@ end subroutine kfile_name
     !print*, 'inside new subroutine'
     trash = 0.0
 
+    ! setup hdf5 data sizes
+    !    slab_size(1) = nlx*nly_par*nlz_par
     data_dims_single(1) = nlx*nly_par*nlz_par
     data_dims_total(1) = nlx*nly*nlz
-
+    
     if (iproc==0) then
-       !open (unit=16,file=trim(file1))
-       ! ---hdf5---
-       call h5open_f(error)
+       !       open (unit=16,file=trim(file1))
+       ! create HDF5 file & datasets
+       call h5open_f(error) ! initialise fortran interface
        call h5fcreate_f(trim(file1), H5F_ACC_TRUNC_F, file_id, error)
        ! create dataspace for A and n
        call h5screate_simple_f(rank, data_dims_total, dataspace_Apar, error)
@@ -3166,14 +3153,14 @@ end subroutine kfile_name
        ! create datasets for A and n 
        call h5dcreate_f(file_id, Apar_name, H5T_NATIVE_DOUBLE, dataspace_Apar, dset_id_Apar, error)
        call h5dcreate_f(file_id, ne_name, H5T_NATIVE_DOUBLE, dataspace_ne, dset_id_ne, error)
-       offset(1) = 0
-       ! ----------
+       offset = 0 ! offset is zero for first processor
        do k=1,nlz_par  !writes its own data
           do j=1,nly_par
              do i=1,nlx
-                !write(16,*) Apar(i,j,k), ne(i,j,k)
+                ! write to apar,ne  buffer which we'll use to write to the hdf5 file -- I'm not sure if Apar, ne is contiguous so this step may not be necessary
                 Apar_buff(i,j,k) = Apar(i,j,k)
                 ne_buff(i,j,k) = ne(i,j,k)
+!                write(16,*) Apar(i,j,k), ne(i,j,k)
              end do
           end do
        end do
@@ -3193,20 +3180,21 @@ end subroutine kfile_name
        call h5dwrite_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff, data_dims_single, error, memspace, dataspace_ne)
        ! close ne
        call h5sclose_f(memspace, error)
-
+       
        do n=1,NPE*npez-1 
           call mpi_recv (Apar_buff, size(Apar_buff), MPI_DOUBLE_PRECISION, n, 1,& ! recv n-process's data
                MPI_COMM_WORLD, status_mp, ierror)
           call mpi_recv (ne_buff, size(ne_buff), MPI_DOUBLE_PRECISION, n, 2,&
                MPI_COMM_WORLD, status_mp, ierror)
-         !  do k=1,nlz_par  !write n-process's data
-         !     do j=1,nly_par
-         !        do i=1,nlx
-         !           write(16,*) Apar_buff(i,j,k), ne_buff(i,j,k)
-         !        end do
-         !     end do
-         !  end do 
-         !---hdf5---
+!          do k=1,nlz_par  !write n-process's data
+ !            do j=1,nly_par
+  !              do i=1,nlx
+!                   write(16,*) Apar_buff(i,j,k), ne_buff(i,j,k)
+   !             end do
+    !         end do
+                   !     end do
+
+          ! select hyperslab for apar with offset for processor n
           offset(1) = n*data_dims_single(1)
           call h5sselect_hyperslab_f(dataspace_Apar,H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
           call h5screate_simple_f(rank, data_dims_single, memspace, error)
@@ -3222,11 +3210,14 @@ end subroutine kfile_name
           call h5dwrite_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff, data_dims_single, error, memspace, dataspace_ne)
           ! close ne
           call h5sclose_f(memspace, error)
+          
        end do
-       !close(16)
-       call h5sclose_f(dataspace_Apar,error)
+       close(16)
+
+       ! close file and datasets
+       call h5sclose_f(dataspace_apar,error)
        call h5sclose_f(dataspace_ne,error)
-       call h5dclose_f(dset_id_Apar, error)
+       call h5dclose_f(dset_id_apar, error)
        call h5dclose_f(dset_id_ne, error)
        call h5fclose_f(file_id, error)
        call h5close_f(error)
@@ -3254,17 +3245,13 @@ end subroutine kfile_name
 
   end subroutine proc0_recvs_and_writes_nogs
 
-
 !*********************************************
-
-
-
   subroutine proc0_reads_to_all(restart1,&
        restart2,Apar,Apar_buff,ne,ne_buff,g,gdummy)
     !LF, 7/3/2015
     !restart process: proc0 reads the files and sends to others, sequentially
-    !Motivation: try to circunvent having files of many gigabytes read by many
-    !processes
+    ! Motivation: try to circunvent having files of many gigabytes read by many
+    ! processes
 
     use constants
     use mp,only:proc0,iproc,send,receive
@@ -3273,55 +3260,48 @@ end subroutine kfile_name
     implicit none
     !include 'mpif.h'
 
-   ! Z. Liu, 4/8/2020
     integer:: ierror
     integer, dimension (MPI_STATUS_SIZE) :: status_mp
 
     integer::i,j,k,n
     real, DIMENSION(nlx,nly_par,nlz_par):: Apar, Apar_buff, ne, ne_buff
-    real, DIMENSION(nlx,nly_par,nlz_par,gmin:ngtot):: g, gdummy
+    real, DIMENSION(nlx,nly_par,nlz_par,gmin:ngtot):: g,gdummy
     real:: trash
     character(len=100):: restart1, restart2
 
-    ! hdf5 file and data properties, zliu 04/06/2020
-    character(len=4) :: Apar_name = "Apar"
-    character(len=2) :: ne_name = "ne"
-    character(len=1) :: g_name = "g"
-
-    integer(HID_T) :: file_id ! file identifier1
-    integer(HID_T) :: file_id_g ! file identifier for g file (restart2)
+    ! hdf5 file and data properties
+    character(len=4):: Apar_name = "Apar"
+    character(len=2):: ne_name = "ne"
+    character(len=1):: g_name = "g"
+    integer(HID_T) :: file_id, file_id_g ! file identifier
     integer(HSIZE_T), dimension(1) :: data_dims_total ! size of entire domain dataset
-    integer(HID_T) :: dataspace_Apar, dataspace_ne, memspace, dset_id_Apar, dset_id_ne !???
-    integer(HID_T) :: dataspace_g, dset_id_g, memspace_g ! dset_id means dataset identifier
-    integer(4) :: error
-    integer(4) :: rank = 1 ! save data as 1d array    
-    !! hyperslab is portions of datasets, here it might be refer to a portion of dataset in ONE PROCESSOR
-    integer(HSIZE_T), dimension(1) :: data_dims_single !size of single processor dataset
-    integer(HSIZE_T), dimension(1) :: slab_size !? = single processor dataset size
-    !! stride and block_size are parameters when selecting hyperslab
-    integer(HSIZE_T), dimension(1) :: stride = (/1/)
-    integer(HSIZE_T), dimension(1) :: block_size = (/1/)
-    integer(HSIZE_T), dimension(1) :: offset
-    integer(HSIZE_T), dimension(1) :: offset_g
-    ! two dimensions but for g
-    integer(HSIZE_T), dimension(1) :: data_dims_single_g
-    integer(HSIZE_T), dimension(1) :: data_dims_total_g
+    integer(HSIZE_T), dimension(1) :: data_dims_total_g ! size of entire domain dataset for g
+    integer(HID_T):: dataspace_Apar, dataspace_ne, memspace, dset_id_Apar, dset_id_ne, dataspace_g, dset_id_g
+    integer(4)     ::   error ! Error flag
+    integer(4):: rank = 1  ! save data as 1d array -- should be possible to make this a 3d array, but do this case first.
+    integer(HSIZE_T), dimension(1):: data_dims_single !size of single processor dataset
+    integer(HSIZE_T), dimension(1):: data_dims_single_g !size of single processor dataset
+    !INTEGER(HSIZE_T), DIMENSION(1) :: slab_size  ! Size of hyperslab = single processor dataset size. not used, 
+    INTEGER(HSIZE_T), DIMENSION(1) :: offset ! Hyperslab offset
+    INTEGER(HSIZE_T), DIMENSION(1) :: offset_g ! Hyperslab offset
+    INTEGER(HSIZE_T), DIMENSION(1) :: stride = (/1/) ! Hyperslab stride 
+    INTEGER(HSIZE_T), DIMENSION(1) :: block_size = (/1/)  ! Hyperslab block size 
 
+    ! Allocate space for buffers
     real, allocatable, dimension(:,:,:) :: Apar_buff2, ne_buff2
-    real, allocatable, dimension(:,:,:,:):: gdummy2
-    
-    !hdf5 data dimensions
-    data_dims_total(1) = nlx*nly*nlz
-    data_dims_single(1) = nlx*nly_par*nlz_par
-    ! two dimensions but for g
-    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin)
-    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin)
-
-
-    allocate (Apar_buff2(nlx,nly_par,nlz_par))
+    real, allocatable, dimension(:,:,:,:) :: g_buff2
+    allocate (Apar_buff2(nlx,nly_par,nlz_par))          
     allocate (ne_buff2(nlx,nly_par,nlz_par))
-    allocate (gdummy2(nlx,nly_par,nlz_par,ngtot-gmin))    
+    allocate (g_buff2(nlx,nly_par,nlz_par,gmin:ngtot))      
 
+    data_dims_single(1) = nlx*nly_par*nlz_par
+    data_dims_total(1) = nlx*nly*nlz
+
+    data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin+1)
+    data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin+1)
+
+    ! this shouldn't change for HDF5 since it is receiving information from proc 0 and not involving I/O
+    ! the G file and Apar, ne files are different
     do n=1,NPE*npez-1
          if (iproc==n) then
            call mpi_recv (Apar_buff, size(Apar_buff), MPI_DOUBLE_PRECISION, 0,1,&
@@ -3346,73 +3326,61 @@ end subroutine kfile_name
            end do
          end if
     end do
-
     if (iproc==0) then
-      !   open (unit=12,file=trim(restart2),status='OLD')
-      !   open (unit=13,file=trim(restart1),status='OLD')
+       !open (unit=12,file=trim(restart2),status='OLD')
+       !open (unit=13,file=trim(restart1),status='OLD')
+       ! read hdf5 files
+       offset(1) = 0
+       offset_g(1) = 0
+       call h5open_f(error)
+       call h5fopen_f(trim(restart1), H5F_ACC_RDONLY_F, file_id, error)
+       call h5fopen_f(trim(restart2), H5F_ACC_RDONLY_F, file_id_g, error)
+       !open dataset
+       call h5dopen_f(file_id, Apar_name, dset_id_Apar, error)
+       call h5dopen_f(file_id, ne_name, dset_id_ne, error)
+       call h5dopen_f(file_id_g, g_name, dset_id_g, error)
+       !get dataspace
+       call h5dget_space_f(dset_id_Apar, dataspace_Apar, error)
+       call h5dget_space_f(dset_id_ne, dataspace_ne, error)
+       call h5dget_space_f(dset_id_g, dataspace_g, error)
+       ! Apar initial read for  proc0
+       call h5sselect_hyperslab_f(dataspace_Apar, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
+       call h5screate_simple_f(rank, data_dims_single, memspace, error)
+       call h5dread_f(dset_id_Apar, H5T_NATIVE_DOUBLE, Apar_buff2, data_dims_single, error, memspace, dataspace_Apar)
+       call h5sclose_f(memspace, error)
+       ! ne initial read
+       call h5sselect_hyperslab_f(dataspace_ne, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
+       call h5screate_simple_f(rank, data_dims_single, memspace, error)
+       call h5dread_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff2, data_dims_single, error, memspace, dataspace_ne)
+       call h5sclose_f(memspace, error)
 
-      !!!!!!!!!!! read hdf5 files !!!!!!!!!!!!!!!!!!!!
-      offset(1) = 0
-      offset_g(1) = 0
-      !open file
-      call h5open_f(error) ! initialize the library
-      call h5fopen_f(trim(restart1),H5F_ACC_RDONLY_F,file_id,error) ! ACC_RDONLY means READ_ONLY
-      call h5fopen_f(trim(restart2),H5F_ACC_RDONLY_F,file_id_g,error)
-      !open an existing dataset, returns an identifier for the dataset
-      call h5dopen_f(file_id, Apar_name, dset_id_Apar, error)
-      call h5dopen_f(file_id, ne_name, dset_id_ne,error)
-      call h5dopen_f(file_id_g, g_name,dset_id_g,error)
-      !make a copy of dataspace of the dataset, returns an identifier for a copy of the dataspace of the dataset
-      !! dataspace id a part of metadata of a dataset, it describes the layout of a dataset's data elements
-      !! two roll of a dataspce:
-      !!! 1. contains spatial information (rand and dimensions)
-      !!! 2. it can be used to select a portion or subset of a dataset by describing data buffers participating in I/O
-      call h5dget_space_f(dset_id_Apar, dataspace_Apar, error)
-      call h5dget_space_f(dset_id_ne, dataspace_ne, error)
-      call h5dget_space_f(dset_id_g, dataspace_g, error)
+       ! g initial read
+       call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
+       call h5screate_simple_f(rank, data_dims_single_g, memspace, error)
+       call h5dread_f(dset_id_g, H5T_NATIVE_DOUBLE, g_buff2, data_dims_single_g, error, memspace, dataspace_g)
+       call h5sclose_f(memspace, error)
 
-      !Apar initial read for proc0
-      call h5sselect_hyperslab_f(dataspace_Apar, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
-      call h5screate_simple_f(rank, data_dims_single, memspace, error)
-      call h5dread_f(dset_id_Apar, H5T_NATIVE_DOUBLE, Apar_buff2, data_dims_single, error, memspace, dataspace_Apar)
-      call h5sclose_f(memspace, error)
-      !ne initial read for proc0
-      call h5sselect_hyperslab_f(dataspace_ne, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
-      call h5screate_simple_f(rank, data_dims_single, memspace, error)
-      call h5dread_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff2, data_dims_single, error, memspace, dataspace_ne)
-      call h5sclose_f(memspace, error)
-
-      !g initial read for proc0
-      !! select a hyperslab region to add to the current selected region
-      call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
-      !! creates a new dataspace and opens it for access
-      !!! rank is the number of dimension, data_dims is the current dimension
-      !!! returns a dataspace identifier (memory dataspace) ("memspace" here)
-      call h5screate_simple_f(rank, data_dims_single_g, memspace_g, error)
-      !! reads raw dataset specified by data_id from the file into an application memory buffer
-      !!! NATIVE_DOUBLE is a memtype id, gdummy2 is buffer
-      !!! The part of the dataset to read is defined by memspace_id and filespace_id
-      !!!! memspace_id specifies the momory dataspace and the selection within it, filespace_id specifies the selection within the file dataset's dataspace
-      !!!! File is refered to original dataset, it has data_id and dataspace_id, memspace is the target
-      !!!! I think dataspace_g here is actually H5S_ALL ? NO, bcause HYPER_SELECTION!
-      call h5dread_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy2, data_dims_single_g, error, memspace_g, dataspace_g)
-      call h5sclose_f(memspace_g, error)
-
-
+       
          do k=1,nlz_par  !reads its own data
             do j=1,nly_par
                do i=1,nlx
+!                 read(13,*) Apar(i,j,k), ne(i,j,k)
+                 !read(13,*) Apar(i,j,k), ne(i,j,k), epar(i,j,k)
+                  !                read(12,*) g(i,j,k,:)
                   Apar(i,j,k) = Apar_buff2(i,j,k)
                   ne(i,j,k) = ne_buff2(i,j,k)
-                  g(i,j,k,:) = gdummy2(i,j,k,:)
-                 !read(13,*) Apar(i,j,k), ne(i,j,k)
-                 !read(13,*) Apar(i,j,k), ne(i,j,k), epar(i,j,k)
-                 !read(12,*) g(i,j,k,:)
+                  g(i,j,k,:) = g_buff2(i,j,k,:)
                end do
             end do
          end do
-
          do n=1,NPE*npez-1
+          !do k=1,nlz_par  !reads n-process's data
+             !do j=1,nly_par
+              ! do i=1,nlx
+                 !read(13,*) Apar_buff(i,j,k), ne_buff(i,j,k)
+                 !read(13,*) Apar_buff(i,j,k), ne_buff(i,j,k), epar(i,j,k)
+                  !read(12,*) gdummy(i,j,k,:)
+
             offset(1) = n*data_dims_single(1)
             offset_g(1) = n*data_dims_single_g(1)
             ! Apar read for proc n
@@ -3425,54 +3393,39 @@ end subroutine kfile_name
             call h5screate_simple_f(rank, data_dims_single, memspace, error)
             call h5dread_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff2, data_dims_single, error, memspace,dataspace_ne)
             call h5sclose_f(memspace, error)
+
             ! g read
             call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
-            call h5screate_simple_f(rank, data_dims_single_g, memspace_g, error)
-            call h5dread_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy2, data_dims_single_g, error, memspace_g, dataspace_g)
-            call h5sclose_f(memspace_g, error)
+            call h5screate_simple_f(rank, data_dims_single_g, memspace, error)
+            call h5dread_f(dset_id_g, H5T_NATIVE_DOUBLE, g_buff2, data_dims_single_g, error, memspace,dataspace_g)
+            call h5sclose_f(memspace, error)
+                  
+               !end do
+             !end do
+          !end do
+          call mpi_send (Apar_buff2, size(Apar_buff2), MPI_DOUBLE_PRECISION, n, 1,&
+                  MPI_COMM_WORLD, ierror)
+          call mpi_send (ne_buff2, size(ne_buff2), MPI_DOUBLE_PRECISION, n, 2,&
+                 MPI_COMM_WORLD, ierror)
+          !call mpi_send (epar_buff, size(epar_buff), MPI_DOUBLE_PRECISION, n, 2,&
+          !       MPI_COMM_WORLD, ierror)
+          call mpi_send (g_buff2, size(g_buff2), MPI_DOUBLE_PRECISION, n, 3,&
+                 MPI_COMM_WORLD, ierror)
+       end do
 
-
-         !  do k=1,nlz_par  !reads n-process's data
-         !     do j=1,nly_par
-         !       do i=1,nlx
-         !         read(13,*) Apar_buff(i,j,k), ne_buff(i,j,k)
-         !         !read(13,*) Apar_buff(i,j,k), ne_buff(i,j,k), epar(i,j,k)
-         !         read(12,*) gdummy(i,j,k,:)
-         !       end do
-         !     end do
-         !  end do
-
-         !  call mpi_send (Apar_buff, size(Apar), MPI_DOUBLE_PRECISION, n, 1,&
-         !          MPI_COMM_WORLD, ierror)
-         !  call mpi_send (ne_buff, size(ne_buff), MPI_DOUBLE_PRECISION, n, 2,&
-         !         MPI_COMM_WORLD, ierror)
-         !  !call mpi_send (epar_buff, size(epar_buff), MPI_DOUBLE_PRECISION, n, 2,&
-         !  !       MPI_COMM_WORLD, ierror)
-         !  call mpi_send (gdummy, size(gdummy), MPI_DOUBLE_PRECISION, n, 3,&
-         !         MPI_COMM_WORLD, ierror)
-            call mpi_send(Apar_buff2, size(Apar_buff2), MPI_DOUBLE_PRECISION,n,1,&
-                   MPI_COMM_WORLD, ierror)
-            call mpi_send(ne_buff2, size(ne_buff2), MPI_DOUBLE_PRECISION,n,1,&
-                   MPI_COMM_WORLD, ierror)
-            call mpi_send(gdummy2, size(gdummy2), MPI_DOUBLE_PRECISION,n,3,&
-                   MPI_COMM_WORLD, ierror)
-         end do
-
-         ! hdf5 close
-         call h5sclose_f(dataspace_Apar,error)
-         call h5sclose_f(dataspace_ne, error)
-         call h5sclose_f(dataspace_g, error)
-         call h5dclose_f(dset_id_Apar,error)
-         call h5dclose_f(dset_id_ne,error)
-         call h5dclose_f(dset_id_g,error)
-         call h5fclose_f(file_id,error)
-         call h5fclose_f(file_id_g,error)
-         call h5close_f(error)
+       call h5sclose_f(dataspace_Apar,error)
+       call h5sclose_f(dataspace_ne,error)
+       call h5sclose_f(dataspace_g,error)
+       call h5dclose_f(dset_id_Apar, error)
+       call h5dclose_f(dset_id_ne, error)
+       call h5dclose_f(dset_id_g, error)
+       call h5fclose_f(file_id, error)
+       call h5fclose_f(file_id_g, error)
+       call h5close_f(error)
    end if
 
  end subroutine proc0_reads_to_all
 
-!*********************************************
   subroutine proc0_reads_to_all_nogs(restart1,&
        restart2,Apar,Apar_buff,ne,ne_buff)
     !LF, 7/3/2015
@@ -3491,12 +3444,11 @@ end subroutine kfile_name
     integer, dimension (MPI_STATUS_SIZE) :: status_mp
 
     integer::i,j,k,n
-    real, DIMENSION(nlx,nly_par,nlz_par):: Apar, Apar_buff, ne, ne_buff, epar, epar_buff
+    real, DIMENSION(nlx,nly_par,nlz_par):: Apar, ne, epar, epar_buff, Apar_buff, ne_buff
     real:: trash
     character(len=100):: restart1, restart2
 
-    ! hdf5 file and data propertoes
-
+    ! hdf5 file and data properties
     character(len=4):: Apar_name = "Apar"
     character(len=2):: ne_name = "ne"
     integer(HID_T) :: file_id ! file identifier
@@ -3505,7 +3457,6 @@ end subroutine kfile_name
     integer(4)     ::   error ! Error flag
     integer(4):: rank = 1  ! save data as 1d array -- should be possible to make this a 3d array, but do this case first.
     integer(HSIZE_T), dimension(1):: data_dims_single !size of single processor dataset
-    !! hyperslab is portions of datasets, here it might be refer to a portion of dataset in ONE PROCESSOR
     INTEGER(HSIZE_T), DIMENSION(1) :: slab_size  ! Size of hyperslab = single processor dataset size
     INTEGER(HSIZE_T), DIMENSION(1) :: offset ! Hyperslab offset
     INTEGER(HSIZE_T), DIMENSION(1) :: stride = (/1/) ! Hyperslab stride 
@@ -3514,11 +3465,11 @@ end subroutine kfile_name
     real, allocatable, dimension(:,:,:) :: Apar_buff2, ne_buff2 !epar_buff
     allocate (Apar_buff2(nlx,nly_par,nlz_par))
     allocate (ne_buff2(nlx,nly_par,nlz_par))
-    trash = 0.0
-   ! hdf5 data dimensions
+
+    ! hdf5 data dimensions
     data_dims_single(1) = nlx*nly_par*nlz_par
     data_dims_total(1) = nlx*nly*nlz
-
+    
     !print*, 'loading within nogs'
     do n=1,NPE*npez-1
          if (iproc==n) then
@@ -3546,39 +3497,6 @@ end subroutine kfile_name
     end do
     !print*, 'loading2'
     if (iproc==0) then
-      !  ! open (unit=12,file=trim(restart2),status='OLD')
-      !   open (unit=13,file=trim(restart1),status='OLD')
-      !    do k=1,nlz_par  !reads its own data
-      !       do j=1,nly_par
-      !          do i=1,nlx
-      !             read(13,*) Apar(i,j,k), ne(i,j,k)
-      !            !read(13,*) Apar(i,j,k), ne(i,j,k), epar(i,j,k)
-      !            !read(12,*) g(i,j,k,:)
-      !          end do
-      !       end do
-      !    end do
-      !    !print*, 'getting there'
-      !    do n=1,NPE*npez-1
-      !     do k=1,nlz_par  !reads n-process's data
-      !        do j=1,nly_par
-      !          do i=1,nlx
-      !            read(13,*) Apar_buff(i,j,k), ne_buff(i,j,k)
-      !            !read(13,*) Apar_buff(i,j,k), ne_buff(i,j,k), epar_buff(i,j,k)
-      !            !read(12,*) gdummy(i,j,k,:)
-      !          end do
-      !        end do
-      !     end do
-      !     !print*, 'almost done'
-      !     call mpi_send (Apar_buff, size(Apar), MPI_DOUBLE_PRECISION, n, 1,&
-      !             MPI_COMM_WORLD, ierror)
-      !     call mpi_send (ne_buff, size(ne_buff), MPI_DOUBLE_PRECISION, n, 2,&
-      !            MPI_COMM_WORLD, ierror)
-      !     !call mpi_send (epar_buff, size(epar_buff), MPI_DOUBLE_PRECISION, n, 2,&
-      !     !       MPI_COMM_WORLD, ierror)
-      !     !call mpi_send (gdummy, size(gdummy), MPI_DOUBLE_PRECISION, n, 3,&
-      !     !       MPI_COMM_WORLD, ierror)
-      !    end do
-
        ! open (unit=12,file=trim(restart2),status='OLD')
        !        open (unit=13,file=trim(restart1),status='OLD')
        !       read hdf5 file
@@ -3602,19 +3520,19 @@ end subroutine kfile_name
        call h5screate_simple_f(rank, data_dims_single, memspace, error)
        call h5dread_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff2, data_dims_single, error, memspace, dataspace_ne)
        call h5sclose_f(memspace, error)
-      
+       
          do k=1,nlz_par  !reads its own data
             do j=1,nly_par
                do i=1,nlx
                   Apar(i,j,k) = Apar_buff2(i,j,k)
                   ne(i,j,k) = ne_buff2(i,j,k)
 !                  read(13,*) Apar(i,j,k), ne(i,j,k)
-                !read(13,*) Apar(i,j,k), ne(i,j,k), epar(i,j,k)
-                !read(12,*) g(i,j,k,:)
+                 !read(13,*) Apar(i,j,k), ne(i,j,k), epar(i,j,k)
+                 !read(12,*) g(i,j,k,:)
                end do
             end do
          end do
-        !print*, 'getting there'
+         !print*, 'getting there'
          do n=1,NPE*npez-1
             offset(1) = n*data_dims_single(1)
             ! Apar read for proc n
@@ -3627,33 +3545,33 @@ end subroutine kfile_name
             call h5screate_simple_f(rank, data_dims_single, memspace, error)
             call h5dread_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff2, data_dims_single, error, memspace,dataspace_ne)
             call h5sclose_f(memspace, error)
-           !          do k=1,nlz_par  !reads n-process's data
-!            do j=1,nly_par
- !             do i=1,nlx
-  !              read(13,*) Apar_buff(i,j,k), ne_buff(i,j,k)
-                !read(13,*) Apar_buff(i,j,k), ne_buff(i,j,k), epar_buff(i,j,k)
-                !read(12,*) gdummy(i,j,k,:)
-   !           end do
-    !        end do
-     !    end do
-         !print*, 'almost done'
+            !          do k=1,nlz_par  !reads n-process's data
+ !            do j=1,nly_par
+  !             do i=1,nlx
+   !              read(13,*) Apar_buff(i,j,k), ne_buff(i,j,k)
+                 !read(13,*) Apar_buff(i,j,k), ne_buff(i,j,k), epar_buff(i,j,k)
+                 !read(12,*) gdummy(i,j,k,:)
+    !           end do
+     !        end do
+      !    end do
+          !print*, 'almost done'
           call mpi_send (Apar_buff2, size(Apar_buff2), MPI_DOUBLE_PRECISION, n, 1,&
                   MPI_COMM_WORLD, ierror)
           call mpi_send (ne_buff2, size(ne_buff2), MPI_DOUBLE_PRECISION, n, 2,&
                  MPI_COMM_WORLD, ierror)
-         !call mpi_send (epar_buff, size(epar_buff), MPI_DOUBLE_PRECISION, n, 2,&
-         !       MPI_COMM_WORLD, ierror)
-         !call mpi_send (gdummy, size(gdummy), MPI_DOUBLE_PRECISION, n, 3,&
-         !       MPI_COMM_WORLD, ierror)
-      end do
+          !call mpi_send (epar_buff, size(epar_buff), MPI_DOUBLE_PRECISION, n, 2,&
+          !       MPI_COMM_WORLD, ierror)
+          !call mpi_send (gdummy, size(gdummy), MPI_DOUBLE_PRECISION, n, 3,&
+          !       MPI_COMM_WORLD, ierror)
+       end do
 
-      ! close hdf5 stuff
-      call h5sclose_f(dataspace_Apar,error)
-      call h5sclose_f(dataspace_ne,error)
-      call h5dclose_f(dset_id_Apar, error)
-      call h5dclose_f(dset_id_ne, error)
-      call h5fclose_f(file_id, error)
-      call h5close_f(error)      
+       ! close hdf5 stuff
+       call h5sclose_f(dataspace_Apar,error)
+       call h5sclose_f(dataspace_ne,error)
+       call h5dclose_f(dset_id_Apar, error)
+       call h5dclose_f(dset_id_ne, error)
+       call h5fclose_f(file_id, error)
+       call h5close_f(error)
    end if
 
  end subroutine proc0_reads_to_all_nogs
