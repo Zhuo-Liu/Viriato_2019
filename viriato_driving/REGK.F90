@@ -84,7 +84,7 @@ program REGK
   complex, allocatable, dimension(:,:,:,:) :: gk, fgm_old, Fgm_pred, gk_star, gknew
   complex, allocatable, dimension(:,:,:) :: f_lastg_old, f_lastg, f_firstg_old
 
-  real, allocatable, dimension(:,:,:) :: ne, ne_buff, vex, vey, vrhosx, vrhosy, temp, dummy_real, dummy_real2
+  real, allocatable, dimension(:,:,:) :: ne, ne_buff, vex, vey, vrhosx, vrhosy, temp, dummy_real, dummy_real2, ne_real
   real, allocatable, dimension(:,:,:) :: phi, Apar, Apar_buff, real_error
   real, allocatable, dimension(:,:,:) :: Epar, uepar, bx, by, bperp, uxavg, uyavg, ux_temp, uy_temp
   real, allocatable, dimension(:,:,:) :: Apar_eq_double_prime, Apar_eq, uepar_eq, phi_eq
@@ -198,6 +198,7 @@ program REGK
   allocate(                temp(nlx, nly_par, nlz_par))
   allocate(          dummy_real(nlx, nly_par, nlz_par))
   allocate(         dummy_real2(nlx, nly_par, nlz_par))
+  allocate(             ne_real(nlx, nly_par, nlz_par))
   allocate(                 phi(nlx, nly_par, nlz_par))
   allocate(                apar(nlx, nly_par, nlz_par))
   allocate(           apar_buff(nlx, nly_par, nlz_par))
@@ -409,8 +410,10 @@ program REGK
         !       open (unit=2020, File='debugregi')
         open (Unit=33, File= trim(timestep))
         open (Unit=666, File=trim(outflow)) 
-        write(666,'(a5,a15,a15,a15,a15,a15,a15,a15,a15)') 'time', 'Bup_max','Bup_jem',&
-             & 'outflow_max','delta','L_sheet','niu2'
+        !write(666,'(a5,a15,a15,a15,a15,a15,a15,a15,a15)') 'time', 'Bup_max','Bup_jem',&
+        !     & 'outflow_max','delta','L_sheet','niu2'
+
+        write(666,'(a15,a15,a15,a15,a15,a15,a15,a15)') 'niu2', 'res2', 'nu_g', 'hyper_nuei' !Z.Liu 7/10/2020
         !        open (unit=667, file=energy_inj)
         open (Unit=221,File=trim(resol))
         open (unit=99,file=trim(gm_ttrace))
@@ -432,12 +435,13 @@ program REGK
      if (debugging) then
      print*, 'checkpointb'
      endif
+     ! if equilib_type = 'none' set in input file, all eqs are zero.
      call equilibrium(Apar_eq, Akpar_eq, uepar_eq, uekpar_eq, Apar_eq_double_prime, &
           &           Akpar_eq_double_prime, phi_eq)
 
      apar_perturb=0.0
      phi_perturb=0.0
-
+     ! if perturb_type = 'none' set in input file, all perturbs are zero.
      call init_perturb(apar_perturb)
 
      !TTR
@@ -491,7 +495,7 @@ program REGK
         do i = 1, nkx_par
            do j = 1, nky
               neK(j, i, k) = neK_perturb(j, i, k)
-              uekpar(j, i, k) = -kperp(j, i)**2 * Akpar(j, i, k)
+              uekpar(j, i, k) = -kperp(j, i)**2 * Akpar(j, i, k) !uekpar = - \nabla_{\perp}^2 A_{\parallel}  Z.Liu
            end do
         end do
 
@@ -516,7 +520,7 @@ program REGK
 
      call FFT2d_direct (Apar(:, :, :), AKpar(:, :, :))
      call FFT2d_direct ( phi(:, :, :),  phiK(:, :, :))
-     call FFT2d_direct (Apar(:, :, :), AKpar(:, :, :))
+     call FFT2d_direct (Apar(:, :, :), AKpar(:, :, :)) !why repeat?  Z.Liu
 
 
 !     if(g_inc) then
@@ -554,14 +558,14 @@ program REGK
 
      call FFT2d_inv (ueKpar(:, :, :), uepar(:, :, :))
      call FFT2d_inv (   neK(:, :, :),    ne(:, :, :))
-     call FFT2d_direct (  ne(:, :, :),   nek(:, :, :))
+     call FFT2d_direct (  ne(:, :, :),   nek(:, :, :)) ! ???  Z.Liu
 
 #    endif
 
      !save initial data:
      !call cuts(1,savetime,proc_X,y_loc_loc,uepar-uepar_eq, apar-apar_eq, phi,vey,runname)
      
-  else
+  else ! restart=1
      if (iproc==proc_X) then
         open (Unit=88, File= trim(invariants)) 
         open (Unit=77, File= trim(Apar_data)) !,STATUS='UNKNOWN',ACCESS='APPEND') 	    
@@ -719,11 +723,11 @@ program REGK
      endif
      !TTR
      !     call FFT2d_inv (ueKpar, uepar)
-     call PHI_POT(neK, phiK)
+     call PHI_POT(neK, phiK) ! compute phik by nek in aux.F90, why cannot be directly computed in loops like uekpar above Z.LIU
      !     call FFT2d_inv(phiK,phi)
      !     !********** INITIAL CONDITIONS *************
      call equilibrium(Apar_eq, Akpar_eq, uepar_eq, uekpar_eq, Apar_eq_double_prime, &
-          &           Akpar_eq_double_prime, phi_eq)
+          &           Akpar_eq_double_prime, phi_eq) !??? why here Z.Liu
 !     if (equilib_type /= 'tear') then
 !        Apar_eq=0.0
 !        Akpar_eq=0.0
@@ -745,6 +749,8 @@ program REGK
   if(debugging) then
   print*, 'done with restarting'
   endif 
+  !*******restarting done********!
+
   !TTR
 # ifdef gasca2d
   call Convol(phik,   Dxphi,   Dyphi)
@@ -771,13 +777,15 @@ program REGK
 #    endif
   end if
 
-  call flows(dxphi,dyphi,dxne,dyne,vex,vey,vrhosx,vrhosy)
+ !**********calculate time interval and hyper terms***************
+
+  call flows(dxphi,dyphi,dxne,dyne,vex,vey,vrhosx,vrhosy) ! calculate the exb flow and density gradient (rhos) flow
   vxmax=max(maxval(abs(vex)),maxval(abs(vrhosx)))
   vymax=max(maxval(abs(vey)),maxval(abs(vrhosy)))
   call max_allreduce (vxmax)
   call max_allreduce (vymax)
 
-  call b_field(dxapar,dyapar,bx,by)
+  call b_field(dxapar,dyapar,bx,by) ! calculate b fields
   bxmax=maxval(abs(bx))
   bymax=maxval(abs(by))
   call max_allreduce(bxmax)
@@ -840,8 +848,8 @@ program REGK
      hyper_nuei=hyperm_coef/dti/(Ngtot+1)**(2*hyper_morder) 
      ! Luis - as per PRL13, eq. 4, hypercollisions;                                                    
   end if
+  !**********End of calculating time interval and hyper terms***************
 
-  
   !initializations:
   RELATIVE_ERROR=0.0
   !dti=0.001
@@ -857,6 +865,12 @@ program REGK
 !  print*, iproc, maxval(abs(Akpar))
   call diagnostics(phiK, nek, uekpar,uekpar_eq,Akpar,&
        Akpar_eq,gk,sumleftover,savetime,res2,niu2,nu_g,hyper_nuei,dti,proc_X,inj,energyzloss)
+
+  if(proc0) then !Z.Liu 7/10/2020
+     write(666,50) niu2, res2, nu_g, hyper_nuei
+50   format(10g16.8)
+  endif
+  
   if(debugging) then
   print*, 'may God help us'
   endif
@@ -979,6 +993,7 @@ program REGK
            if(debugging) then 
            print*, 'starting to do the first computation'
            endif
+
            call funcne_i(Dxphi,Dyphi,Dxne,Dyne,DxApar,DyApar,Dxuepar,Dyuepar,Fne_old, &
                 braakparuekpar)
            if(g_inc) then
@@ -1028,7 +1043,9 @@ program REGK
         end if
      end if
 
-     call SEMI_IMP_OP(dti,bperp_max,aa0,SI_oper)
+     call SEMI_IMP_OP(dti,bperp_max,aa0,SI_oper) ! ??? in aux.F90
+
+     !***** Predictor step calculation begins *******
      do i=1,nkx_par
         do j=1,nky
            guess(j,i,:)=Akpar(j,i,:)
@@ -1079,6 +1096,7 @@ program REGK
                    !nu_func2(j,i,nu_g,ngtot,hyper_nuei,dti)*f_lastg_old(j,i,:)
            end do
         end do
+   !***** Predictor step calculation ends *******
 
         Myperfon('ngTLoop')
         !TTR
@@ -1134,7 +1152,7 @@ program REGK
      call Convol2(AKpar_star,  DxApar_star,  DyApar_star)
      call Convol2(uekpar_star, Dxuepar_star, Dyuepar_star)
 #    endif
-
+   
      if(g_inc) then
         call funcAKpar_i(DxApar_star,DyApar_star,Dxphi_star,Dyphi_star,&
              & Dxne_star,Dyne_star,Dxuepar_star,Dyuepar_star, &
@@ -1145,6 +1163,7 @@ program REGK
              & dummy_real,dummy_real, akpar_star, FApar_star, savetime)
      end if
      
+     !***** P_Loop begins, this is to achieve desired convergence in one time step!!*****
      Myperfon('PLoop')
      P_LOOP:   do p_iter = 0, pmax
         
@@ -1199,7 +1218,7 @@ program REGK
 
                  ueKparnew(j,i,k)=-kperp(j,i)**2*AKparnew(j,i,k)
 
-                 rel_err=rel_err+(abs(Akparnew(j,i,k)-Akpar(j,i,k)))**2
+                 rel_err=rel_err+(abs(Akparnew(j,i,k)-Akpar(j,i,k)))**2 ! rel_err is the change of Akpar in one time step, accumulated                
               end do
            end do
         end do
@@ -1228,7 +1247,7 @@ program REGK
               
               !CALCULATE THE ERROR FOR THIS P-ITERATION
               rel_error(j,i,:)=abs(SI_oper(j,i,:)/4.*(Akparnew(j,i,:)-guess(j,i,:)))/ &
-                   sqrt(rel_err/(Nkx*Nky))
+                   sqrt(rel_err/(Nkx*Nky)) !NOTE that guess:=aparnew at the end of one loop
            end do
         end do
         
@@ -1503,7 +1522,7 @@ program REGK
              dz*(1+max(nky,nkx_par*Npe)*de**2)**0.5/(max(nky,nkx_par*Npe)*rhos))  !,1./(ky(nky/2+1)*bymax))
      end if
    
-     x=CFL_frac*CFL_flow
+     x=CFL_frac*CFL_flow ! CFL_frac = 0.25 in constants
    
      !*******
    
@@ -1554,12 +1573,14 @@ program REGK
            call FFT2d_inv (uekpar(:, :, k),       uepar(:, :, k))
            call FFT2d_inv (  phiK(:, :, k),         phi(:, :, k))
            call FFT2d_inv ( dummy(:, :, k), dummy_real2(:, :, k))
+           call FFT2d_inv (   nek(:, :, k),    ne_real(:, :, k)) ! Z.Liu 6/29/2020
         end do
 #       elif defined(gasca3d)
         call FFT2d_inv ( Akpar(:, :, :),        Apar(:, :, :))
         call FFT2d_inv (uekpar(:, :, :),       uepar(:, :, :))
         call FFT2d_inv (  phiK(:, :, :),         phi(:, :, :))
         call FFT2d_inv ( dummy(:, :, :), dummy_real2(:, :, :))
+        call FFT2d_inv (   nek(:, :, :),    ne_real(:, :, :)) !Z.Liu 6/29/2020
         call FFT2d_direct (Apar(:, :, :), AKpar(:, :, :))
 
 #       endif
@@ -1589,8 +1610,9 @@ program REGK
  !          width=4*sqrt(abs((Apar(x_loc,y_loc_loc,nlz/2)-Apar_eq(x_loc,y_loc_loc,nlz/2))&
  !               /Apar_eq_double_prime(x_loc,y_loc_loc,nlz/2)))
  !       end if
-        call injected(dummy_real2,phi,inj)
-        call injected(dummy_real2,apar,inj) !LMM
+        !call injected(dummy_real2,phi,inj)
+        call injected(dummy_real2,phi,ne_real,inj) !Z.Liu 6/29/2020
+        !call injected(dummy_real2,apar,inj) !LMM
         call calc_leftover(dxapar,dyapar,dxg(:,:,:,ngtot),dyg(:,:,:,ngtot),gk(:,:,:,ngtot-1),sumleftover)
         call diagnostics(phiK, nek, uekpar,uekpar_eq,Akpar,&
              Akpar_eq,gk,sumleftover,savetime,res2,niu2,nu_g,hyper_nuei,dti,proc_X,inj,energyzloss)
