@@ -1447,13 +1447,15 @@ end subroutine helicity_test
 
 
 !*********************************************
-  subroutine injected(dummy_real,fi,inj)
+   !subroutine injected(dummy_real,fi,inj)! Z.Liu 6/29/2020
+    subroutine injected(dummy_real,fi,ne,inj)
     use constants
     use mp
     use grid
     implicit none
     
-    real, DIMENSION(NLx,NLy_PAR,NLz_PAR):: dummy_real,fi
+    !real, DIMENSION(NLx,NLy_PAR,NLz_PAR):: dummy_real,fi
+    real, DIMENSION(NLx,NLy_PAR,NLz_PAR):: dummy_real,fi,ne
     real::inj
     integer::i,j,k
 
@@ -1461,7 +1463,11 @@ end subroutine helicity_test
     do k=1,nlz_par
        do j=1,nly_par
           do i=1,nlx
-             inj=inj+dummy_real(i,j,k)*fi(i,j,k)
+             !inj=inj + dummy_real(i,j,k)*fi(i,j,k)
+             !inj=inj + rhos_diag**2*ne(i,j,k)*dummy_real(i,j,k)
+            inj = inj + (rhos_diag**2*ne(i,j,k) - fi(i,j,k))*dummy_real(i,j,k) !Z.Liu 7/3/2020
+            !inj = inj + (rhos_diag**2*(gama0(kperp(j,1)**2*rhoi**2/2.)-1.)/rhoi**2 -1)*fi(i,j,k)*dummy_real(i,j,k)
+            !inj = inj + (rhos_diag**2 - 1./(2./rhoi**2*(gama0(kperp(j,i)**2*rhoi**2/2.)-1.)))*ne(i,j,k)*dummy_real(i,j,k)
           end do
        end do
     end do
@@ -1859,18 +1865,20 @@ end subroutine helicity_test
           end do
        end do
     end if
-    b_energy(:)=b_energy(:)/(nlx*nly*1.0)
-    de_energy(:)=de_energy(:)/(nlx*nly*1.0)
-    ne_energy(:)=ne_energy(:)/(nlx*nly*1.0)
-    phine_energy(:)=phine_energy(:)/(nlx*nly*1.0)
-    sumgsquare=sumgsquare/(nlx*nly*1.0)
-    ohmic_diss(:)=ohmic_diss(:)/(nlx*nly*1.0)
-    visc_diss(:)=visc_diss(:)/(nlx*nly*1.0)
-    gm_diss(:)=gm_diss(:)/(nlx*nly*1.0)
-    hyper_eta_diss(:)=hyper_eta_diss(:)/(nlx*nly*1.0)
-    hyper_nu_diss(:)=hyper_nu_diss(:)/(nlx*nly*1.0)
-    hyper_gm_diss(:)=hyper_gm_diss(:)/(nlx*nly*1.0)
-    hyper_gm_kdiss(:)=hyper_gm_kdiss(:)/(nlx*nly*1.0)
+
+    ! Z.Liu 7/2/2020
+    !b_energy(:)=b_energy(:)/(nlx*nly*1.0)
+    !de_energy(:)=de_energy(:)/(nlx*nly*1.0)
+    !ne_energy(:)=ne_energy(:)/(nlx*nly*1.0)
+    !phine_energy(:)=phine_energy(:)/(nlx*nly*1.0)
+    !sumgsquare=sumgsquare/(nlx*nly*1.0)
+    !ohmic_diss(:)=ohmic_diss(:)/(nlx*nly*1.0)
+    !visc_diss(:)=visc_diss(:)/(nlx*nly*1.0)
+    !gm_diss(:)=gm_diss(:)/(nlx*nly*1.0)
+    !hyper_eta_diss(:)=hyper_eta_diss(:)/(nlx*nly*1.0)
+    !hyper_nu_diss(:)=hyper_nu_diss(:)/(nlx*nly*1.0)
+    !hyper_gm_diss(:)=hyper_gm_diss(:)/(nlx*nly*1.0)
+    !hyper_gm_kdiss(:)=hyper_gm_kdiss(:)/(nlx*nly*1.0)
 
 !    print*,iproc,b_energy
      
@@ -2539,11 +2547,11 @@ end subroutine kfile_name
        if(proc0) then
           do k = 1, nlz_par
              do j = 1, nky
-                ek_gm(k, m) = ek_gm(k, m) + 0.5*abs(gk(j, 1, k, m))**2
+                ek_gm(k, m) = ek_gm(k, m) + 0.5*abs(gk(j, 1, k, m))**2*rhos_diag**2 !Z.Liu 7/8/3030
              end do
              do i = 2, nkx_par
                 do j = 1, nky
-                   ek_gm(k, m) = ek_gm(k, m) + abs(gk(j, i, k, m))**2
+                   ek_gm(k, m) = ek_gm(k, m) + abs(gk(j, i, k, m))**2*rhos_diag**2 !Z.Liu 7/8/3030
                 end do
              end do
           end do
@@ -2551,7 +2559,7 @@ end subroutine kfile_name
           do k = 1, nlz_par
              do i = 1, nkx_par
                 do j = 1, nky
-                   ek_gm(k, m) = ek_gm(k, m) + abs(gk(j, i, k, m))**2
+                   ek_gm(k, m) = ek_gm(k, m) + abs(gk(j, i, k, m))**2*rhos_diag**2 !Z.Liu 7/8/3030
                 end do
              end do
           end do
@@ -2622,11 +2630,11 @@ end subroutine kfile_name
     if(proc0) then
        do k=1,nlz_par
           do j=1, nky
-             ek_gm(k)=ek_gm(k)+0.5*abs(gk(j,1,k,gmin))**2
+             ek_gm(k)=ek_gm(k)+0.5*abs(gk(j,1,k,gmin))**2*rhos_diag**2
           end do
           do i=2,NKx_par
              do j=1,NKy
-                ek_gm(k)=ek_gm(k)+abs(gk(j,i,k,gmin))**2
+                ek_gm(k)=ek_gm(k)+abs(gk(j,i,k,gmin))**2*rhos_diag**2
              end do
           end do
        end do
@@ -2634,7 +2642,7 @@ end subroutine kfile_name
        do k=1,nlz_par
           do i=1,NKx_par
              do j=1,NKy
-                ek_gm(k)=ek_gm(k)+abs(gk(j,i,k,gmin))**2
+                ek_gm(k)=ek_gm(k)+abs(gk(j,i,k,gmin))**2*rhos_diag**2
              end do
           end do
        end do
@@ -2664,11 +2672,11 @@ end subroutine kfile_name
        if(proc0) then
           do k=1,nlz_par
              do j=1, nky
-                ek_gm(k)=ek_gm(k)+0.5*abs(gk(j,1,k,m))**2
+                ek_gm(k)=ek_gm(k)+0.5*abs(gk(j,1,k,m))**2*rhos_diag**2 !Z.LIU 
              end do
              do i=2,NKx_par
                 do j=1,NKy
-                   ek_gm(k)=ek_gm(k)+abs(gk(j,i,k,m))**2
+                   ek_gm(k)=ek_gm(k)+abs(gk(j,i,k,m))**2*rhos_diag**2
                 end do
              end do
           end do
@@ -2676,7 +2684,7 @@ end subroutine kfile_name
           do k=1,nlz_par
              do i=1,NKx_par
                 do j=1,NKy
-                   ek_gm(k)=ek_gm(k)+abs(gk(j,i,k,m))**2
+                   ek_gm(k)=ek_gm(k)+abs(gk(j,i,k,m))**2*rhos_diag**2
                 end do
              end do
           end do
@@ -2950,7 +2958,7 @@ end subroutine kfile_name
     integer(HID_T) :: dataspace_Apar, dataspace_ne, dset_id_Apar, dset_id_ne, memspace
     integer(HSIZE_T), dimension(1) :: data_dims_single
     integer(HSIZE_T), dimension(1) :: data_dims_total_g
-    integer(HID_T) :: dataspace_g, memspace, dset_id_g
+    integer(HID_T) :: dataspace_g, dset_id_g
     integer(HSIZE_T), dimension(1) :: data_dims_single_g
 
     integer(4) :: error
@@ -3014,17 +3022,17 @@ end subroutine kfile_name
        !----hdf5-----
        call h5sselect_hyperslab_f(dataspace_Apar, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
        call h5screate_simple_f(rank,data_dims_single,memspace,error)
-       call h5dwrite_f(dset_id_Apar, H5T_NATIVE_DOUBLE, Apar_buff, data_dims_single, error)
+       call h5dwrite_f(dset_id_Apar, H5T_NATIVE_DOUBLE, Apar_buff, data_dims_single, error, memspace, dataspace_Apar)
        call h5sclose_f(memspace, error)
 
        call h5sselect_hyperslab_f(dataspace_ne, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
        call h5screate_simple_f(rank,data_dims_single,memspace,error)
-       call h5dwrite_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff, data_dims_single, error)
+       call h5dwrite_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff, data_dims_single, error, memspace, dataspace_ne)
        call h5sclose_f(memspace, error)
 
        call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
        call h5screate_simple_f(rank,data_dims_single_g,memspace,error)
-       call h5dwrite_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy,data_dims_single_g, error)
+       call h5dwrite_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy,data_dims_single_g, error, memspace, dataspace_g)
        call h5sclose_f(memspace, error)
 
        do n=1,NPE*npez-1 
@@ -3052,17 +3060,17 @@ end subroutine kfile_name
 
           call h5sselect_hyperslab_f(dataspace_Apar, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
           call h5screate_simple_f(rank,data_dims_single,memspace,error)
-          call h5dwrite_f(dset_id_Apar, H5T_NATIVE_DOUBLE, Apar_buff, data_dims_single,error)
+          call h5dwrite_f(dset_id_Apar, H5T_NATIVE_DOUBLE, Apar_buff, data_dims_single,error, memspace, dataspace_Apar)
           call h5sclose_f(memspace,error)
 
           call h5sselect_hyperslab_f(dataspace_ne, H5S_SELECT_SET_F, offset, data_dims_single, error, stride, block_size)
           call h5screate_simple_f(rank,data_dims_single,memspace,error)
-          call h5dwrite_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff, data_dims_single, error)
+          call h5dwrite_f(dset_id_ne, H5T_NATIVE_DOUBLE, ne_buff, data_dims_single, error, memspace, dataspace_ne)
           call h5sclose_f(memspace, error)
    
           call h5sselect_hyperslab_f(dataspace_g, H5S_SELECT_SET_F, offset_g, data_dims_single_g, error, stride, block_size)
           call h5screate_simple_f(rank,data_dims_single_g,memspace,error)
-          call h5dwrite_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy,data_dims_single_g, error)
+          call h5dwrite_f(dset_id_g, H5T_NATIVE_DOUBLE, gdummy,data_dims_single_g, error, memspace, dataspace_g)
           call h5sclose_f(memspace, error)
           !write(*,*) 'Hello world5-', n 
        end do
@@ -3290,7 +3298,7 @@ end subroutine kfile_name
     integer(HID_T) :: file_id_g ! file identifier for g file (restart2)
     integer(HSIZE_T), dimension(1) :: data_dims_total ! size of entire domain dataset
     integer(HID_T) :: dataspace_Apar, dataspace_ne, memspace, dset_id_Apar, dset_id_ne !???
-    integer(HID_T) :: dataspace_g, dset_id_g, memspace ! dset_id means dataset identifier
+    integer(HID_T) :: dataspace_g, dset_id_g ! dset_id means dataset identifier
     integer(4) :: error
     integer(4) :: rank = 1 ! save data as 1d array    
     !! hyperslab is portions of datasets, here it might be refer to a portion of dataset in ONE PROCESSOR
@@ -3318,8 +3326,7 @@ end subroutine kfile_name
     ! two dimensions but for g
     data_dims_single_g(1) = nlx*nly_par*nlz_par*(ngtot-gmin+1)
     data_dims_total_g(1) = nlx*nly*nlz*(ngtot-gmin+1)
-
-
+    
     do n=1,NPE*npez-1
          if (iproc==n) then
            call mpi_recv (Apar_buff, size(Apar_buff), MPI_DOUBLE_PRECISION, 0,1,&
@@ -3450,7 +3457,7 @@ end subroutine kfile_name
          !         MPI_COMM_WORLD, ierror)
             call mpi_send(Apar_buff2, size(Apar_buff2), MPI_DOUBLE_PRECISION,n,1,&
                    MPI_COMM_WORLD, ierror)
-            call mpi_send(ne_buff2, size(ne_buff2), MPI_DOUBLE_PRECISION,n,1,&
+            call mpi_send(ne_buff2, size(ne_buff2), MPI_DOUBLE_PRECISION,n,2,&
                    MPI_COMM_WORLD, ierror)
             call mpi_send(gdummy2, size(gdummy2), MPI_DOUBLE_PRECISION,n,3,&
                    MPI_COMM_WORLD, ierror)

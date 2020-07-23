@@ -14,7 +14,7 @@ contains
     ! use global       ! kfp2, kfp1, nx,ny,  nky
     
     use mp,only:iproc,proc0
-    use constants, only: pi, nlx, nly, nkx_par, nky, nlz_par, lx, ly, lz, npe 
+    use constants, only: pi, nlx, nly, nkx_par, nky, nlz_par, lx, ly, lz, npe, rhoi, rhos
     use grid	
     !  use mp,only:proc0
     implicit none
@@ -135,8 +135,18 @@ contains
 !    do ip=0, NPE*npez-1
     if (mod(iproc,NPE)==proc_force) then
        do k=1, nlz_par
-          re_fieldk(j,iloc,k)=re_fieldk(j,iloc,k)-kfp**2*amp*cos(phi)*cos(2*pi*kfz*zz(k)/lz+phiz)   
-          im_fieldk(j,iloc,k)=im_fieldk(j,iloc,k)-kfp**2*amp*sin(phi)*cos(2*pi*kfz*zz(k)/lz+phiz)
+          !re_fieldk(j,iloc,k)=re_fieldk(j,iloc,k)-kfp**2*amp*cos(phi)*cos(2*pi*kfz*zz(k)/lz+phiz)   
+          !im_fieldk(j,iloc,k)=im_fieldk(j,iloc,k)-kfp**2*amp*sin(phi)*cos(2*pi*kfz*zz(k)/lz+phiz)
+          !re_fieldk(j,iloc,k)=re_fieldk(j,iloc,k)+2./rhoi**2*(gama0(kfp**2*rhoi**2/2.)-1.)*amp*cos(phi)*cos(2*pi*kfz*zz(k)/lz+phiz)
+          !im_fieldk(j,iloc,k)=im_fieldk(j,iloc,k)+2./rhoi**2*(gama0(kfp**2*rhoi**2/2.)-1.)*amp*sin(phi)*cos(2*pi*kfz*zz(k)/lz+phiz)
+          !Z.Liu 7/2/2020 
+          !The modified normalization factor does NOT mean energy injected is independent of rho_i, it is just logically consistent with inplementations above 
+          !re_fieldk(j,iloc,k)=re_fieldk(j,iloc,k)+1./(rhos**2-1./(2./rhoi**2*(gama0(kfp**2*rhoi**2/2.)-1.)))*amp*cos(phi)*cos(2*pi*kfz*zz(k)/lz+phiz)
+          !im_fieldk(j,iloc,k)=im_fieldk(j,iloc,k)+1./(rhos**2-1./(2./rhoi**2*(gama0(kfp**2*rhoi**2/2.)-1.)))*amp*sin(phi)*cos(2*pi*kfz*zz(k)/lz+phiz)   
+          !Z.Liu 7/3/2020 
+          !"sqrt" added here is to seek a way which may make injected energy similar for different rhoi. Adding "sqrt" assumes that not only S, but ne will also be divided by this factor.
+          re_fieldk(j,iloc,k)=re_fieldk(j,iloc,k)+1./sqrt(rhos**2-1./(2./rhoi**2*(gama0(kfp**2*rhoi**2/2.)-1.)))*amp*cos(phi)*cos(2*pi*kfz*zz(k)/lz+phiz)
+          im_fieldk(j,iloc,k)=im_fieldk(j,iloc,k)+1./sqrt(rhos**2-1./(2./rhoi**2*(gama0(kfp**2*rhoi**2/2.)-1.)))*amp*sin(phi)*cos(2*pi*kfz*zz(k)/lz+phiz) 
        enddo
        !NFL: note: if FLR effects are included, then the factor is not kperp^2,
        !but something involving Gamma_0(b)
@@ -169,7 +179,7 @@ contains
   ! with a Marsaglia shift sequence. Returns a uniform random deviate
   ! between 0.0 and 1.0 (exclusive of the endpoint values).
   ! Call with (INIT=ival) to initialize.
-  ! The period of this generator is supposed to be about 3.1× 10^18.
+  ! The period of this generator is supposed to be about 3.1ï¿½ 10^18.
   !
   implicit none
   !

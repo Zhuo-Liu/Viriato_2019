@@ -840,7 +840,7 @@ end subroutine helicity_test
        open (unit=unitnumber+2, file= filename3)
        write(unitnumber+2, '(a10,4a15)') 'z' ,'uepar_z', 'apar', 'ux', 'uy'
 
-       do k=1, nlz
+       do k=1, nlz                 
           write(unitnumber+2,'(4g16.8)') lz/nlz*(k-1-nlz/2),zworkuepar(k), &
                zworkapar(k), zworkuy(k)
        end do
@@ -1102,7 +1102,7 @@ end subroutine helicity_test
              ek_b=ek_b+energy_b(j,1)
              ek_u=ek_u+energy_u(j,1)
              ek_e=ek_e+energy_e(j,1)
-             hk_a=hk_a+energy_ha(j,1)
+             hk_a=hk_a+energy_ha(j,1) 
              hk_t=hk_t+energy_ht(j,1)
              ik_t=ik_t+energy_it(j,1)
              ik_a=ik_a+energy_ia(j,1)
