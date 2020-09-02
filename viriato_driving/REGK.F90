@@ -30,7 +30,7 @@ program REGK
 
   use constants,  only: set_anjor, read_parameters, nlx, nly, nly_par, nlz_par, nkx, nkx_par, nky, &
        &                g_inc, gmin, ngtot,  Lx, Ly, Lz, inkx, inky, inkz, x_loc, pi, &
-       &                Apar_data, gm_ttrace, invariants, outflow, resol, timestep, &
+       &                Apar_data, gm_ttrace, invariants, hypercoeffs,outflow, resol, timestep, &
        &                ppfile, restart, oldppfile, oldrun, rs_time, apar_in, gfields_in, &
        &                fieldsfile, gfieldsfile, anjor, PATH, &
        &                rhos, rhos_de, rhoi, small_rhoi, rhoe_LTe, CFL_frac, &
@@ -250,6 +250,7 @@ program REGK
   Apar_data = trim(runname)//trim(Apar_data)
   gm_ttrace = trim(runname)//trim(gm_ttrace)
   invariants = trim(runname)//trim(invariants)
+  hypercoeffs = trim(runname)//trim(hypercoeffs)
   outflow = trim(runname)//trim(outflow)
   resol = trim(runname)//trim(resol)
   timestep = trim(runname)//trim(timestep)
@@ -296,6 +297,9 @@ program REGK
   ! <AVK
   call set_anjor(anjor,rhos_de,gmin)
   open (unit = 1729, file=trim(ppfile)) !AVK: Savetimes will be written to ppfile
+   open (unit=1408, File=trim(hypercoeffs)) !LMM
+        write(1408, '(a12,a12,a12,a12)') 'res2', &
+             &'niu2', 'nu_g', 'hyper_nuei'
 
   width=0.0
   w2=0.0
@@ -1760,11 +1764,19 @@ program REGK
            call FFT2d_direct (Apar(:, :, :), AKpar(:, :, :))
            !call kdatasave3d(runname, savetime, howlong, akpar, nek, phik)
            call init_transforms !LMM
+           if (proc0) then
+                 write(1408, '(4E11.4)') res2, &
+                   &niu2, nu_g, hyper_nuei
+           endif
         else
            call datasavetest(runname, savetime,howlong,apar,ne,epar,gdummy)
            call FFT2d_direct (  ne(:, :, :),   nek(:, :, :))
            call FFT2d_direct (Apar(:, :, :), AKpar(:, :, :))
            !call kdatasave3d(runname, savetime, howlong, akpar, nek, phik)
+           if (proc0) then
+                 write(1408, '(4E11.4)') res2, &
+                   &niu2, nu_g, hyper_nuei
+           endif
            call init_transforms !LMM
         end if
 #if WITH_HAC
@@ -1851,12 +1863,20 @@ program REGK
         call FFT2d_direct (Apar(:, :, :), AKpar(:, :, :))
         !call kdatasave3d(runname, savetime, howlong, akpar, nek, phik)
         call init_transforms !LMM
+        if (proc0) then
+                 write(1408, '(4E11.4)') res2, &
+                   &niu2, nu_g, hyper_nuei
+           endif
      else
         call datasavetest(runname, savetime, howlong, apar, ne, epar, gdummy)
         call FFT2d_direct (  ne(:, :, :),   nek(:, :, :))
         call FFT2d_direct (Apar(:, :, :), AKpar(:, :, :))
         !call kdatasave3d(runname, savetime, howlong, akpar, nek, phik)
         call init_transforms !LMM 
+        if (proc0) then
+         write(1408, '(4E11.4)') res2, &
+                   &niu2, nu_g, hyper_nuei
+           endif
      end if
      call cuts(1,savetime,proc_X,y_loc_loc,uepar-uepar_eq, apar-apar_eq, phi, vey, runname)
      call k_energy(1,savetime,p,akpar,phik,nek,gk,dzgk2,braakpargk2,ek_u,ek_b,ek_e,hk_a,hk_t,ik_t,ik_a,ek_n,hk_aa, hk_ta, ik_ta, ik_aa,hk_1,hk_2,chk,runname)
@@ -1872,6 +1892,7 @@ program REGK
      close (unit=221)
      close (unit=99)
      close (unit=1729)
+     close (unit=1408)
 !     close (Unit=44) 
 !     close (Unit=46) 
   end if

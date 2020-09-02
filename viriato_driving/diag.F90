@@ -37,8 +37,8 @@ module diag
   real,public,save :: hv_tstime = 0.0 !< total save time
   real :: hv_stime1, hv_stime2 !< save times: first and second intermediate
   character(len=*),parameter,public:: hv_lbl = "viriato_hac_info: "
-  integer*4,public,save :: hv_vv = HAC_QUIET !< HAC Verbosity variable
-  
+  integer*4,public,save :: hv_vv = HAC_QUIET !< HAC Verbosity variable 
+  logical :: debugging_d = .true.    
 #endif
 
   !TTR
@@ -666,11 +666,7 @@ end subroutine helicity_test
     if(g_inc) then
        call file_name(runname, time,length,filename1,filename2)
        call proc0_recvs_and_writes(filename1,filename2,Apar,ne,g)
-    else
-       call file_name(runname, time,length,filename1,filename2)
-       !print*, 'about to output data with the new subroutine' - DEBUGGING LMM
-       call proc0_recvs_and_writes_nogs(filename1,filename2,Apar,ne)
-    end if 
+
 !        if(iproc==0) then
 !           open (unit=12, file= trim(filename1))
 !           open (unit=13, file= trim(filename2))
@@ -704,7 +700,11 @@ end subroutine helicity_test
 !           end if
 !           call barrier
 !        end do
-
+    else
+       call file_name(runname, time,length,filename1,filename2)
+       !print*, 'about to output data with the new subroutine' - DEBUGGING LMM
+       call proc0_recvs_and_writes_nogs(filename1,filename2,Apar,ne)
+    end if 
   end subroutine datasavetest
 
 
@@ -1017,7 +1017,7 @@ end subroutine helicity_test
     complex, dimension (nky*nkx_par*NPE) :: work_u,work_b, work_e, work_ha, work_ht, work_it, work_ia, work_n, work_haa, work_hta, work_ita, work_iaa, work_hk1, work_hk2, work_ch
     real, dimension(nky,nkx_par)::energy_u,energy_b, energy_e,energy_ha, energy_ht, energy_it, energy_ia, energy_n, energy_haa, energy_hta, energy_ita, energy_iaa, energy_hk1, energy_hk2, energy_ch ! LUIS, 28/4/15: kinetic, magnetic, electric energy
     real, dimension(:),allocatable::kshell_u,kshell_b,kshell_e,kshell_ha, kshell_ht, kshell_it, kshell_ia, kshell_n,kshell_haa, kshell_hta, kshell_ita, kshell_iaa, kshell_hk1, kshell_hk2, kshell_ch
-    real:: ek_u,ek_b,ek_e,hk_a,hk_t,ik_t,ik_a,ek_n,hk_aa,hk_ta,ik_ta,ik_aa,hk_1,hk_2,time,kpmax,chk!,de,rhos
+    real:: ek_u,ek_b,ek_e,hk_a,hk_t,ik_t,ik_a,ek_n,hk_aa,hk_ta,ik_ta,ik_aa,hk_1,hk_2,time,kpmax,chk!,de,l
     integer::i,j,k,p,unitnumber,kp,m
     character(len=100)::filename1
     character(len=100),intent(in)::runname
@@ -1060,7 +1060,7 @@ end subroutine helicity_test
        allocate(kshell_hk2(ceiling(kpmax)))   
        allocate(kshell_ch(ceiling(kpmax)))
        open (unit=unitnumber, file= trim(filename1))
-       write(unitnumber, '(17a15)') 'kglobal(k)', 'kp' ,'kinetic', 'magnetic', 'electric', 'helicity_t', 'helicity_a', 'injection_t', 'injection_a', 'helicity_ta', 'helicity_aa', 'injection_ta', 'injection_aa', 'density', 'helicity_real', 'helicity_abs','cross_helicity'
+       write(unitnumber, '(20a15)') 'kglobal(k)', 'kp' ,'kinetic', 'magnetic', 'electric', 'helicity_t', 'helicity_a', 'injection_t', 'injection_a', 'helicity_ta', 'helicity_aa', 'injection_ta', 'injection_aa', 'density', 'helicity_real', 'helicity_abs','cross_helicity'
      end if
     
     do k=1,nlz_par
@@ -1189,36 +1189,36 @@ end subroutine helicity_test
              end do
           end do
        end if
-       ek_b=ek_b/(nlx*nly*1.0)
-       ek_u=ek_u/(nlx*nly*1.0)
-       ek_e=ek_e/(nlx*nly*1.0)
-       hk_a=hk_a/(nlx*nly*1.0)
-       hk_t=hk_t/(nlx*nly*1.0)
-       ik_t=ik_t/(nlx*nly*1.0)
-       ik_a=ik_a/(nlx*nly*1.0)
-       ek_n=ek_n/(nlx*nly*1.0)
-       hk_aa=hk_aa/(nlx*nly*1.0)
-       hk_ta=hk_ta/(nlx*nly*1.0)
-       ik_ta=ik_ta/(nlx*nly*1.0)
-       ik_aa=ik_aa/(nlx*nly*1.0)
-       hk_1=hk_1/(nlx*nly*1.0)
-       hk_2=hk_2/(nlx*nly*1.0)
-       chk=chk/(nlx*nly*1.0)
-       energy_b=energy_b/(nlx*nly*1.0)
-       energy_u=energy_u/(nlx*nly*1.0)
-       energy_e=energy_e/(nlx*nly*1.0)
-       energy_ha=energy_ha/(nlx*nly*1.0)
-       energy_ht=energy_ht/(nlx*nly*1.0)
-       energy_it=energy_it/(nlx*nly*1.0)
-       energy_ia=energy_ia/(nlx*nly*1.0)
-       energy_n=energy_n/(nlx*nly*1.0)
-       energy_haa=energy_haa/(nlx*nly*1.0)
-       energy_hta=energy_hta/(nlx*nly*1.0)
-       energy_ita=energy_ita/(nlx*nly*1.0)
-       energy_iaa=energy_iaa/(nlx*nly*1.0)
-       energy_hk1=energy_hk1/(nlx*nly*1.0)
-       energy_hk2=energy_hk2/(nlx*nly*1.0)
-       energy_ch=energy_ch/(nlx*nly*1.0)
+       ! ek_b=ek_b/(nlx*nly*1.0)
+       ! ek_u=ek_u/(nlx*nly*1.0)
+       ! ek_e=ek_e/(nlx*nly*1.0)
+       ! hk_a=hk_a/(nlx*nly*1.0)
+       ! hk_t=hk_t/(nlx*nly*1.0)
+       ! ik_t=ik_t/(nlx*nly*1.0)
+       ! ik_a=ik_a/(nlx*nly*1.0)
+       ! ek_n=ek_n/(nlx*nly*1.0)
+       ! hk_aa=hk_aa/(nlx*nly*1.0)
+       ! hk_ta=hk_ta/(nlx*nly*1.0)
+       ! ik_ta=ik_ta/(nlx*nly*1.0)
+       ! ik_aa=ik_aa/(nlx*nly*1.0)
+       ! hk_1=hk_1/(nlx*nly*1.0)
+       ! hk_2=hk_2/(nlx*nly*1.0)
+       ! chk=chk/(nlx*nly*1.0)
+       ! energy_b=energy_b/(nlx*nly*1.0)
+       ! energy_u=energy_u/(nlx*nly*1.0)
+       ! energy_e=energy_e/(nlx*nly*1.0)
+       ! energy_ha=energy_ha/(nlx*nly*1.0)
+       ! energy_ht=energy_ht/(nlx*nly*1.0)
+       ! energy_it=energy_it/(nlx*nly*1.0)
+       ! energy_ia=energy_ia/(nlx*nly*1.0)
+       ! energy_n=energy_n/(nlx*nly*1.0)
+       ! energy_haa=energy_haa/(nlx*nly*1.0)
+       ! energy_hta=energy_hta/(nlx*nly*1.0)
+       ! energy_ita=energy_ita/(nlx*nly*1.0)
+       ! energy_iaa=energy_iaa/(nlx*nly*1.0)
+       ! energy_hk1=energy_hk1/(nlx*nly*1.0)
+       ! energy_hk2=energy_hk2/(nlx*nly*1.0)
+       ! energy_ch=energy_ch/(nlx*nly*1.0)
        call sum_reduce(ek_b,0)
        call sum_reduce(ek_u,0)
        call sum_reduce(ek_e,0)
@@ -1353,8 +1353,10 @@ end subroutine helicity_test
                 end do
                 !write(unitnumber, '(2i5,2g16.8)') kglobal(k), kp ,kshell_u(kp), kshell_b(kp)
 				!AVK: we were missing a factor of nlz
-                write(unitnumber, '(2i5,15g16.8)') kglobal(k), kp ,kshell_u(kp)/(nlz*1.), &
-				&kshell_b(kp)/(nlz*1.), kshell_e(kp)/(nlz*1.), kshell_ht(kp)/(nlz*1.), kshell_ha(kp)/(nlz*1.), kshell_it(kp)/(nlz*1.0), kshell_ia(kp)/(nlz*1.0), kshell_hta(kp)/(nlz*1.), kshell_haa(kp)/(nlz*1.), kshell_ita(kp)/(nlz*1.0), kshell_iaa(kp)/(nlz*1.0), kshell_n(kp)/(nlz*1.0), kshell_hk1(kp)/(nlz*1.0), kshell_hk2(kp)/(nlz*1.0), kshell_ch(kp)/(nlz*1.0)
+                ! write(unitnumber, '(2i5,15g16.8)') kglobal(k), kp ,kshell_u(kp)/(nlz*1.), &
+		!		&kshell_b(kp)/(nlz*1.), kshell_e(kp)/(nlz*1.), kshell_ht(kp)/(nlz*1.), kshell_ha(kp)/(nlz*1.), kshell_it(kp)/(nlz*1.0), kshell_ia(kp)/(nlz*1.0), kshell_hta(kp)/(nlz*1.), kshell_haa(kp)/(nlz*1.), kshell_ita(kp)/(nlz*1.0), kshell_iaa(kp)/(nlz*1.0), kshell_n(kp)/(nlz*1.0), kshell_hk1(kp)/(nlz*1.0), kshell_hk2(kp)/(nlz*1.0), kshell_ch(kp)/(nlz*1.0)
+                write(unitnumber, '(2i5,18g16.8)') kglobal(k), kp, kshell_u(kp), &
+				&kshell_b(kp), kshell_e(kp), kshell_ht(kp), kshell_ha(kp), kshell_it(kp), kshell_ia(kp), kshell_hta(kp), kshell_haa(kp), kshell_ita(kp), kshell_iaa(kp), kshell_n(kp)
              end do
              write(unitnumber, *) '              '   !useful?
           end if
@@ -1853,7 +1855,7 @@ end subroutine helicity_test
                       hyper_gm_kdiss(k)=hyper_gm_kdiss(k)+2.0*nu_g*rhos_diag**2*kperp(j,i)**(2*hyper_order_g)*&
                            gk(j,i,k,ng)*conjg(gk(j,i,k,ng))
                    end do
-                end if
+                end if  
 
                 !             hyper_eta_diss(k)=hyper_eta+res2*kperp(j,i)**2*&
                 !                  (uekpar(j,i)-uekpar_eq(j,i))*conjg(uekpar(j,i)-uekpar_eq(j,i))&

@@ -118,6 +118,7 @@ MODULE constants
   character(len=100)::Apar_data="_Apar_data.dat"
   character(len=100)::gm_ttrace="_gm_timetrace.dat"
   character(len=100)::invariants="_invariants.dat"
+  character(len=100)::hypercoeffs="_hypercoeffs.dat"
   character(len=100)::outflow="_outflow.dat"
   character(len=100)::resol="_resol.dat"
   character(len=100)::timestep="_timestep.dat"
